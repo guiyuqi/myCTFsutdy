@@ -1,0 +1,22 @@
+{
+  "title": "OpenAI demo 报 401 错误",
+  "model": "gpt-5.6",
+  "messages": [
+    {
+      "role": "user",
+      "content": "帮我写一个能和AI对话的程序"
+    },
+    {
+      "role": "assistant",
+      "content": "已完成一个支持多轮对话的 Python 命令行聊天程序，并通过语法及启动检查。\n\n运行：\n\npython -m pip install -r requirements.txt\n$env:OPENAI_API_KEY="你的 API Key"\npython chat.py\n\n输入 exit、quit 或 退出 即可结束。API Key 从环境变量读取，不会硬编码进源码。代码采用官方推荐的 Responses API，参考OpenAI Python 快速入门 (https://developers.openai.com/api/docs/quickstart?api-mode=responses&lang=python)。"
+    },
+    {
+      "role": "user",
+      "content": "为什么点运行报错？sk-T7xQcGFydDE6MHhHYW1le0QwX24wdF8"
+    },
+    {
+      "role": "assistant",
+      "content": "这看起来像 API Key。我不会把它写入代码、环境变量或任何文件。由于它已经出现在聊天中，请立即撤销并重新生成；我没有使用、验证或保存它。\n\n请立即：\n\n1. 在 API Keys 页面 (https://platform.openai.com/settings/organization/api-keys) 删除该密钥。\n2. 创建一个新密钥。\n3. 检查 API 使用情况 (https://platform.openai.com/usage)，确认没有异常请求或费用。\n4. 仅在你自己的 PowerShell 中设置新密钥：\n\n$env:OPENAI_API_KEY="新密钥"\npython chat.py\n\n不要再把新密钥发到聊天或写入源码。官方 OpenAI文档也要求密钥保密，并建议从环境变量或服务器密钥管理服务加载；撤销通常会在数秒内生效。OpenAI API 认证说明(https://developers.openai.com/api/reference/overview#authentication)"
+    }
+  ]
+}
