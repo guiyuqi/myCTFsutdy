@@ -1,0 +1,27 @@
+{
+  "id": 12079,
+  "ownerId": 142134,
+  "name": "Chronos-Vault（时空金库）",
+  "description": "时间与视角皆被抹去的四维星尘中，唯有寻回失落的共振时刻与交汇视线，方能令光影在混沌中雕琢出封存的铭文。",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出155次，初始分值500.0，当前分值401.99，解出分值400.71",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "343acd32550f4b11a37cd81407f40452",
+    "signature": "37e900606fa723a20b9ba15c9d28f09c",
+    "url": "https://pro-resource.dasctf.com/resource/oss/0f592521d400d7142497cf822ca126f4.zip",
+    "name": "chronos_vault_handout.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/0f592521d400d7142497cf822ca126f4.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825259783,
+  "isNeedCheck": false
+}

@@ -362,9 +362,9 @@ libc 与栈 → 栈上 ROP 读 `/flag`。
 1. **流量分析：先拿“说明书”**。`capture.pcap` 里有三条流：
 
    ```
-   192.168.16.128:45812 -> 192.168.16.9:80     HTTP    /ops/patch-policy.html（运维 wiki）
-   192.168.16.128:46018 -> 192.168.16.9:8888   FGT/0.9 legacy 明文
-   192.168.16.128:46124 -> 192.168.16.9:9999   FGT/1.0 加密（本案核心）
+   <target>:45812 -> <target>:80     HTTP    /ops/patch-policy.html（运维 wiki）
+   <target>:46018 -> <target>:8888   FGT/0.9 legacy 明文
+   <target>:46124 -> <target>:9999   FGT/1.0 加密（本案核心）
    ```
 
    wiki 页面泄露关键业务语义：
@@ -440,7 +440,7 @@ libc 与栈 → 栈上 ROP 读 `/flag`。
    `0f9b3ce7...`。逐段做覆盖度检查后定位：
 
    ```
-   flow ('192.168.16.9', 9999, ...) span size 2406767 holes 656 groups 1
+   flow ('<target>', 9999, ...) span size 2406767 holes 656 groups 1
        hole streamoff 6299 .. 6954 len 656
    ```
 

@@ -5,11 +5,18 @@
 > **题目**：共 11 题，全部解出（100%）
 > **flag 格式**：`GEELY{...}`
 
+> **仓库说明**：本目录是从个人归档里抽出的**脱敏发布版**。
+> 只发布 `README.md`、WP 正文、`notes/`、`scripts/`（部分赛事另有 `tooling/`、`retrospective/`）；
+> 归档里的 `attachments/`（题目附件）、`evidence/`（证据台账）、`deliverable/`（打包件/PDF）**不随仓库发布**，
+> 所以下面目录表里提到的这些子目录，在本仓库中可能不存在。
+> 真实靶机地址已替换为 `<target>`，个人主机路径已替换为 `~`，队名/姓名已替换为 `<team>` / `<name>`。
+
 ## 目录结构
 
 | 路径 | 内容 |
 |---|---|
-| `wp-jike-2026.md` | 完整 Writeup：11 题逐题题解 + 成绩统计 + 复盘（1081 行） |
+| `wp-zeekr-2026.md` | 完整 Writeup：11 题逐题题解 + 成绩统计 + 复盘（1081 行） |
+| `deliverable/wp-zeekr-2026.pdf` | 提交用 WP PDF（57 页；原名 `wp.pdf`） |
 | `scripts/` | 解题脚本（23 个） |
 | `notes/` | 逐题解题笔记（27 份） |
 | `attachments/` | 题目原始附件（15 个 zip） |

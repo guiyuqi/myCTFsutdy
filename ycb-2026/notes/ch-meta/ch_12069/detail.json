@@ -1,0 +1,27 @@
+{
+  "id": 12069,
+  "ownerId": 142134,
+  "name": "FedResNyFinLedgerOs",
+  "description": "你能攻破这个架设在虚拟机里的记账系统，逃逸出来获得「太平洋标准银行」的金库密钥吗？",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出10次，初始分值500.0，当前分值499.67，解出分值499.59",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "f50cc820e10c44089e9ee3382658cb89",
+    "signature": "3dc456410e5ee8a1c508f091e2ebd0c8",
+    "url": "https://pro-resource.dasctf.com/resource/oss/cdcc73a8588e5ab2469a9d967c1243f5.zip",
+    "name": "FedResNyFinLedgerOs.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/cdcc73a8588e5ab2469a9d967c1243f5.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825249186,
+  "isNeedCheck": false
+}

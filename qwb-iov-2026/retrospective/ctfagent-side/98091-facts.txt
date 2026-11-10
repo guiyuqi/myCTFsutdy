@@ -1,0 +1,438 @@
+### 1 [09:04:44]
+题目信息:
+你拿到了一个奇怪的流量包文件，但是好像打不开。不过你听说这是大黑客916的杰作，他把他的flag藏在了这堆数字碎片里面，不仅用了自己的协议，还用来自印度神秘密钥同款方式加密了它，你能找到藏在流量包里的秘密吗？
+附件: attachment.7z (1).zip
+
+### 2 [09:11:14]
+gnpacp.619 是整文件字节反转的 pcapng（自定义 magic 1A2B3C4C），反转并改回 1A2B3C4D 后可正常解析出 DGPT/1 协议流量
+1) 附件 attachment.7z (1).zip 解出 attachment.7z，再 7z x 得到 gnpacp.619（5,315,052 字节，sha256 与随包 gnpacp.619.sha256 一致：78f633736afac877d9e937478abb84d411520360276ed3f312038ac53319bdce）。文件名 "gnpacp" 是 "pcapng" 的反写，提示字节顺序反转。
+
+2) 实测：d[::-1] 后得到标准 pcapng 结构，第一个块即 SHB(0A0D0D0A, len 0x1c)；唯一异常是 SHB 的 byte-order magic 为 0x1A2B3C4C（末尾 4c，标准应为 4d）。把该 4 字节改成 1A2B3C4D 后 tshark/capinfos 完全可读（按小端解释字段正确，即整文件逐字节反转恰好把原大端 pcapng 字段变成小端）。
+
+3) 结构：1×SHB + 1×IDB + 379×EPB（无额外注释块/隐藏块）；IDB 封装 Ethernet；共 379 包，时间 2026-10-28 13:17:24，源 <target> → <target>。
+
+4) 第 1 包 UDP 39001→39001 载荷是明文 ASCII 握手 "DGPT/1 HANDSHAKE"：
+gateway=GW-2241
+peer_pubkey=0439daf267869de081f789324098661a15bb89d0874dde29ddba88c0c08a6329d29933f25abc0170dff9e7544c57f59ff0599b8653163ea8dcac923a1c5b00759d
+ephemeral=040b484a0c2055301c67703c4bc0a1af3013dcfa7171345d59d7dba5d3ccfb7c0c0c6a233e2e4155c18348eb31faebdf661cf47a060df88251448832032ae311a6
+nonce=4d5ff53f0e92f66463b7d801
+suite=DGPT-ECDH-1 / key_epoch=legacy-8bit / kdf=HKDF-SHA256 / salt=nonce / info=DGPT/1 / z=x / keylen=32 / cipher=AES-256-GCM / payload_len=5281156 / crc32=0xd6de6047
+两个公钥均为 65 字节 04||X||Y，且都验证落在 SECP256R1(P-256) 上（非低阶/非无效点）。
+
+5) 其余 378 个 TCP 包（39002→443）重组后为 TCP 流：前 12 字节 "DGPT/1 DATA\n"，其后 5,281,156 字节密文，长度与 payload_len 完全一致，且 zlib.crc32(密文)==0xd6de6047，证明该记录为单条 AES-256-GCM 密文（1 字节 XOR 周期检验显示无重复密钥流结构，字节熵 7.99996，确为强加密）。
+
+6) 已排除（有界负向）：以「私钥为 8bit/小数标量（legacy-8bit 字面理解）」做 k=1..1024，分别作用于 peer_pubkey 与 ephemeral，得到共享 x 后按 HKDF-SHA256 的多组 (salt=nonce / b'nonce' / 空；info=DGPT/1 / DGPT / HANDSHAKE / 空) 及 SHA256(x)、nonce||x、x||x 派生 32 字节 key，用 AES-ECB 计数器块 nonce||00000002 解密密文前 32~48 字节：可打印率最高仅 23/32（≈随机），无任何命中。另测试 256 个单字节重复 key / PBKDF2 / SHA256 单字节 key，亦无命中。故共享密钥的派生方式或私钥来源不同于上述假设，需另找线索（下一步建议：对 peer_pubkey/ephemeral 做 BSGS 求小离散对数、或从 gateway=GW-2241/nonce/crc32 派生私钥，并尝试 tag 前置/后置的 GCM 校验作判定 oracle）。
+
+可复用中间产物（本次已生成，位于 cwd）：shared/extract/gnpacp.619（原始）、shared/extract/rev.pcap（整文件反转）、shared/extract/fixed.pcap（magic 修正后可被 tshark 读取）、shared/extract/stream.bin（TCP 重组流，12 字节头 + 5,281,156 字节密文）。
+
+### 3 [09:17:37]
+peer_pubkey 的 P-256 私钥是小整数 137（BSGS<2^32 唯一命中），ECDH 共享点 x=1368b59c…4ef4cfa 可直接算出
+1) 用纯 Python 实现的 secp256r1 算术 + BSGS（range 2^32，baby/giant table x 坐标匹配，shared/p256.py）对握手里的两个公钥求小离散对数：
+   - peer_pubkey(04 39da…) → k = 137（唯一命中，正向验证 mul(137,G)==A；8-bit 标量，印证 key_epoch=legacy-8bit 是"弱私钥"而非"截断共享密钥"）
+   - ephemeral(04 0b48…) → 2^32 内无解（非小标量）
+   因此 DGPT-ECDH-1 的弱点是静态公钥私钥只有 8 位，而不是 campaign A 试过的 k=1..1024 全扫描失败的原因（其失败在于 KDF/载荷判据，而非候选私钥不含真值）。
+
+2) 用 k=137 乘 ephemeral 得到协议共享点 S=137*eph（已验证对称性），坐标：
+   x = 1368b59cd69e797d13f44037b981404b859daf9a73e2da7c892ece8ea4ef4cfa
+   y = 3e1c4a8276b52a67e6843ebcb2bae2d7ada644a86aee9428b01033f40e23ae0e
+   （即 z=x 明文共享秘密 32 字节；已存 shared/shared_x.txt，脚本 shared/kdf_sweep.py、shared/gcm_sweep.py）
+
+3) 有界负向（本 Step 实测）：以该 S 出发，1624 个候选密钥（ikm∈{x, xl(LE), y, x||y, 04||x||y, 02||x, 00||x, "137", 0x89, eph, peer, nonce}；构造∈{raw 拼接, SHA256, SHA512[:32], SHA1 重复, HKDF-SHA256/-SHA512 ×(salt∈{nonce 原始/hex ASCII/"nonce"/空/"GW-2241"/peer/eph/"137"})×(info∈{DGPT/1, DGPT, HANDSHAKE, "DGPT/1 DATA", DGPT-ECDH-1, legacy-8bit, HKDF-SHA256, key, nonce-hex, "x", "salt", 空}), PBKDF2-SHA256 iter=1/1000}）逐一尝试 AES-CTR（计数器块 nonce||00000000/00000001/00000002）、ChaCha20(nonce)、AES-CBC(iv=nonce||0^4) 解密 ct=stream.bin[12:] 前 8KB：无任何候选得到可读/含 flag 或常见文件魔数的明文（最高分仅来自巧合的 1f 8b 前缀，非 gzip：第 3 字节 0x2c 非法）。故 AES/ChaCha 直接密钥派生形式尚未命中，正确 KDF 或载荷偏移/封装仍未知。
+
+4) 未完成：AES-256-GCM tag-oracle 遍历（假设末 16 字节为 tag、AAD∈{空, "DGPT/1 DATA\n", "DGPT/1", nonce, 组合}）因本轮时间上限未跑完，无可判定结果；不得视为已排除。下一步最省力的判定：先确认载荷是否含 GCM tag（ct 末尾/开头 16 字节），用 tag 校验代替可打印率判据，并扩大 HKDF info/salt 变体与“密文非从 offset 0 开始”的可能性。
+
+### 4 [09:18:10]
+已用可验证的 GCM-tag oracle 大幅扩展排除「ECDH 小私钥 + HKDF(x)」路径：k≤65536（双向、4 种核心派生）+ k≤5000（72 种派生组合）全部无命中；oracle harness 已用合成真值端到端自检通过
+1) 重新独立确认了密文抽取：按 EPB→Ethernet→IPv4→TCP 逐包拼接 payload 得 5,281,168 字节，前 12 字节 b'DGPT/1 DATA\n'，其后 ct=5,281,156 字节，zlib.crc32(ct)=0xd6de6047 与握手声明一致（文件 shared/extract/payload.bin，可用）。
+2) 新建判定 oracle（shared/try/ec.py, search.py, sweep.py, wide.py）：
+   - 纯 Python P-256 Jacobian 实现，自检：n*G=∞，且 k*G 与 cryptography 库 derive_private_key 对 k=1,2,3,12345,0xdeadbeef 完全一致；
+   - 判定器 = 先按 GCM 计数器块 nonce||00000002 试解首块做可打印/魔数预筛，再对整条 5.28MB 记录做 AES-GCM decrypt_and_verify（tag 取末 16 字节，并试 tag 前置、AAD ∈ {空, b'DGPT/1 DATA\n', b'DGPT/1'}）；
+   - 合成真值验证：自造 a=137 的 peer 公钥、b=999983 的 ephemeral，shared=a*B、key=HKDF-SHA256(x, salt=nonce, info='DGPT/1')，标准 GCM(nonce) 加密 → harness 准确在 k=137（对 ephemeral 方向）命中并解出明文，证明管线与 oracle 正确、无假阴性。
+3) 实测排除范围（均在本 harness 下零命中）：
+   a. k=1..5000，两个方向（shared=k*peer_pubkey 与 shared=k*ephemeral），每次对 ikm∈{x32, 04||X||Y, 02||X} × salt∈{nonce, b'nonce', b''} × info∈{b'DGPT/1', b'', b'legacy-8bit', b'DGPT-ECDH-1', b'DGPT/1 DATA\n'} 的 HKDF-SHA256，再加 SHA256(ikm)、SHA256(nonce||ikm)、SHA256(ikm||nonce)、x 原样作 key（共 72 档）。
+   b. k=1..65536，两个方向，4 种核心派生（HKDF(x, nonce, 'DGPT/1')、HKDF(x, nonce, '')、SHA256(x)、x 原样），合计约 13 万个候选 key，零命中（耗时约 30s，说明该判定管线速度快、可继续放大）。
+推论：若私钥确为 8bit 字面值（≤255），则派生方式必不同于上述「x 坐标 + HKDF/SHA256」族；否则私钥并非小标量。下一步建议：把 wide.py 的派生族（y 坐标、sha512/blake2s/hmac/pbkdf2、salt=noncehex、info=epoch/suite）跑完 k≤512；并对 GW-2241 / 916 / nonce 等字符串直接派生 key 做同一 oracle 判定；同时考虑 16 字节 IV(非 12 字节 nonce) 的 GCM 语义差异。
+
+### 5 [09:29:09]
+独立复核 peer 私钥=137/共享 x 一致；新建"keystream 前缀预筛 + GCM 标签判定"工具（已对 12/16 字节 IV 与 AESGCM 对拍），并对 10,959 个候选密钥 × 7 种 IV 安置做前缀预筛：仅 1 个巧合命中（偏移16处 "MZ"），无真实明文
+1) 独立复核（用 cryptography，而非上一轮的纯 Python 实现）：SECP256R1 下 derive_private_key(137).public_key() 与握手 peer_pubkey 逐字节相同；137 与 handshake ephemeral 做 ECDH(exchange) 得到的 32 字节共享 x 恰为 1368b59cd69e797d13f44037b981404b859daf9a73e2da7c892ece8ea4ef4cfa，与 fact_002 记录一致。故“共享 x 值本身”已被两条独立实现路径确认，可当作确定常量使用（符号 k=n-137 不影响 z=x）。
+
+2) 新增可复用工具（cwd/shared/solve/）：
+   - ks.py：纯 Python 实现 GCM keystream（支持 12 字节 IV 直取 nonce||00000001 与任意长度 IV 的 GHASH 派生 J0），已与 cryptography AESGCM 对 12/16 字节随机 IV 的密文逐字节对拍通过（断言 ct[:100]==pt^ks 成立）。
+   - core.py：payload.bin 解析（HDR=12 字节 b'DGPT/1 DATA\n'，CT=5,281,156 字节）+ 26 种 framing 枚举（IV∈{nonce, nonce||0^4, 0^4||nonce, 0^12, 0^16, CT[:12], CT[:16], CT[-12:]}×tag 前置/后置×AAD∈{空, 头, DGPT/1}）+ try_key() 全量 AESGCM decrypt_and_verify。
+   - gen.py：一次性生成 10,959 个候选 32 字节密钥（ikm∈{x,y,x||y,04||x||y,02||x,03||y,x[::-1],xhex,peer,eph,peer_x,eph_x,nonce,noncehex,头,十进制x,"137"} × {raw,sha1,sha256,sha512,sha3_256,blake2s,blake2b,shake128,md5pad,sha256x2,sha+k,sha||k,HMAC 双向,PBKDF2(1/1000),HKDF-SHA256/-SHA512×(salt 11 种:nonce/noncehex/"nonce"/空/DGPT/1/GW-2241/legacy-8bit/DGPT-ECDH-1/头/"916"/flag)×(info 15 种)}，外加 0..255 单字节 8 种构造、以及印度/协议相关字符串表 ~80 个词的 10 种构造）。
+   - scan.py：8 进程前缀预筛（每 key 每 IV 只算 4 个 keystream 块，检查 CT 偏移∈{0,4,12,16} 处是否呈已知文件魔数/合法 UTF-8/近全可打印）。
+
+3) 有界负向（本轮实测）：上述 10,959 个 key × 7 种 IV 假设的前缀预筛共约 7.7 万次判定，仅 1 个巧合命中（hkdf512_137_hdr_x 在 offset=16 处出现 "MZ" 两字节，其余 62 字节不可读），无任何候选解出可信明文。说明“密钥来自 x/点坐标/单字节/印度相关字符串 + 常规 KDF 族”这一族在当前 IV 安置下仍不成立（注意：这只是前缀可读性预筛，未做全量 GCM tag 校验，且 plaintext 若为无魔数的纯二进制则该预筛会漏检；因此本结论不能当作 tag 层面的绝对排除）。
+4) 未完成/交接：scan.py 的 full() 在收尾前有一处解包 bug（seen 元组为 2 元 vs full() 解 3 元），因此“预筛命中项的全量 tag 校验”尚未跑通；下一环只需把 seen 元素补成 (name,keyhex,ivhex) 即可用 core.FRAMES 做 26 种 framing 的完整 decrypt_and_verify。更省时的判定路线：直接对每个候选 key 用 core.try_key() 全量校验（实测 26 framing 约 0.17s/key，8 进程约 1200 次/s），可覆盖十万级 key 空间；建议优先验证：①IV=CT[:12]/CT[:16] 的“流内 IV 前缀”framing；②HKDF 输出 44/48 字节后 key=[:32], IV=[32:44] 的派生；③AAD=完整 497 字节握手文本（已存 shared/solve/handshake.txt）。
+
+### 6 [09:30:08]
+DGPT/1 载荷已成功解密：key=HKDF-SHA256(ikm=共享x, salt=12字节nonce, info="DGPT/1")，AES-256-GCM(无AAD, tag在末尾) 解出内层 DoIP/UDS pcapng，内含资产清单与 81 组密钥提示
+1) 成功解出内层明文（本轮实测，一次命中，非猜测）：
+   ikm  = 1368b59cd69e797d13f44037b981404b859daf9a73e2da7c892ece8ea4ef4cfa  (=137*ephemeral 的 x，即 fact_002 的 shared_x，见 shared/shared_x.txt)
+   key  = HKDF-SHA256(salt=握手 nonce 原始 12 字节 4d5ff53f0e92f66463b7d801, ikm=x, info=b"DGPT/1", L=32)
+        = 959d9c3c771c87034cd2f8dc2712060179414444444ba1624ce55db1ccb3ee6c
+   ct   = payload.bin[12:]（5,281,156 B，"DGPT/1 DATA\n" 之后）
+   解密 = AESGCM(key).decrypt(nonce, ct, aad=b'')  → 5,281,140 B 明文，file(1) 识别为 "pcapng capture file v1.0"（magic 0a0d0d0a，SHB byte-order magic 也是 0x1a2b3c4d）。
+   即：无 AAD、GCM tag 就是记录最后 16 字节、12 字节 IV 直接用握手 nonce；zlib.crc32 校验字段针对密文不针对明文。
+   证据文件：shared/campB/plain.bin（明文 pcapng）、shared/campB/dec.py（复现脚本，一条命令重跑）、shared/campB/base.py（12 种 IV 变体 + 3 种 AAD 的探针，'nonce/b" 空"/tag后置' 唯一命中）。
+   注意：该结果与 fact_003 的"已排除 HKDF(x,nonce,'DGPT/1')"相冲突，以本轮实测为准（其 harness 应存在判据/实现缺陷，勿再按 fact_003 的阴性范围推结论）。
+
+2) 内层 pcapng 结构（shared/campB/parse.py 解析，4122 包，tshark 可读）：
+   - 第1包 UDP 广播 DoIP "vehicle announcement"，VIN = LSVAM4180E2100001。
+   - 之后 <target> 与 <target> 做 UDS：10 03 扩展会话 → 22 F1A0(被拒 7F 22 31) → 27 01 取 seed 11 22 33 44 55 66 77 88 → 27 02 送 key 4b 78 69 1e 0f 3c 2d d2（已通过）→ 22 F190 读 VIN → 22 F1A0 读到清单。
+   - 其余为大块 UDS 0x22/0x62 传输（每个 DoIP 消息承载 1178 B 数据，UDS 头为 SA/TA(4)+SID(1)+2 字节随机 DID），源 .52↔.1 共 1472 条消息。
+   - 封装细节：内层帧 = Eth(14) + IPv4(ihl=5, totlen 1253) + TCP 20 B（伪 TCP 头，seq/ack 以 1213 递增）+ DoIP 8 B(02 fd 8001, len=1205) + body 1185 B。DoIP len 比实际 body 多 20（=其前面 TCP 头长度），即 hint 里说的 "extra bytes before this frame"。
+
+3) 两条明文提示（内层 UDS 载荷，可用 tshark -r plain.bin 直接看）：
+   a. DID F1A0 回复（frame 15，长度被截断在 "blob_07."）：
+      "# workshop asset manifest / # transport: SOME/IP over UDP / # assets are AES-256-GCM encrypted; do you notice the extra bytes before this frame? / name,size,crc32,chunks
+       wo_2241.png,983917,39d7ed46,707
+       sample_04.wav,2116878,2a36dc64,1521
+       blob_07.??,..."（第 3 项名字被 240 B 上限截断，需从别处取全）
+   b. 逻辑地址 0e83 的首条消息（frame 1873）中文"备份说明"：
+      "本文件不是压缩包，别用 7z/zip 去开。密钥由 4 个参数组合而成，每个参数有 3 个候选：型号 A1/A2/A3；年款 2021/2022/2023；工位 W1/W2/W3；批次 B1/B2/B3。用对了才..."（同样被 271 B 上限截断）
+      ⇒ 最终层密钥 = 4 参数组合（81 组），需继续找 KDF 形式与密文（资产按 manifest 为 AES-256-GCM，"extra bytes"疑为每帧 20 B 里的 IV/tag）。
+
+4) 有界未完成（下一步接力）：把 728 条 /1178 B 的 0e81 数据块按帧序拼接后 gzip 解压（块首确有合法 1f8b0800 头，前 1178 B 解出 1554 B）在第 2 块即报 "invalid distance too far back"，说明块间存在 20 B 缺口或块顺序/DID 语义未解；已用 zlib Decompress.copy() 对全部 727 块做过"下一块"匹配（shared/campB/chain.py），无一能续接 ⇒ 不是单纯乱序，而是每块边界缺失/变换（与 DoIP len 多 20 的 hint 一致）。可复用产物：shared/campB/plain.bin（明文 pcapng）、parse.py（抽出 4122 帧 → pkts.pkl）、u3.py（按逻辑地址/SA-TA 分组 DoIP/UDS 消息）、chain.py（块续接搜索）、dec.py（外层解密）。
+
+### 7 [09:40:44]
+内层明文复核：完整 manifest（blob_07.enc,8395,0b733384,7）；资产流 0e81=728 块 gzip(base64(bzip2…))；seq 字段=1213*k+1 证明块序天然正确；0e83=284B 说明+8224B 密文（28B 前缀 00112233×4+0xAA×12），81 组密钥 3.8M 次 GCM 标签校验零命中
+用自写解析器（shared/campA/px.py、dump.py、blk.py、g3.py、blob.py、tcp*.py、sweep1.py）独立复核 shared/campB/plain.bin（t/cap==orig，4122 EPB，SHB/IDB 之外 EPB options 区长度全为 0）后得到的新增量：
+
+1) 内层 DoIP/UDS 分组（按 dst+逻辑地址 ta 统计，UDS 头=SA(2)+TA(2)+SID(1)+DID(2)）：
+   - 0e80/0010：会话+安全访问+VIN+DID F1A0（清单）；
+   - 0e81：728 个数据块（1198B×727 + 763B），另有同内容的 .52→.1 镜像请求；
+   - 0e82：200×8B 载荷，全部为 deadbeef+4 字节递增计数（0..9 循环），疑为 decoy；
+   - 0e83：1 条 284B 中文说明 + 7 个数据块（1198B×6 + 1036B = 8224B）。
+   请求/响应两侧载荷逐字节相同（728/728 对相同），故 0e81 只有 728 份唯一块。
+
+2) 完整（未截断）manifest 明文，DID F1A0 回复（frame 15，267B）：
+   "# workshop asset manifest\n# transport: SOME/IP over UDP\n# assets are AES-256-GCM encrypted; do you notice the extra bytes before this frame?\nname,size,crc32,chunks\nwo_2241.png,983917,39d7ed46,707\nsample_04.wav,2116878,2a36dc64,1521\nblob_07.enc,8395,0b733384,7\n"
+
+3) 0e83 完整中文说明（284B，utf-8 已解出）：备份说明/“本文件不是压缩包，别用 7z/zip 去开”/密钥由 4 参数 3 候选组合：型号 A1-A3、年款 2021-2023、工位 W1-W3、批次 B1-B3/“用对了才能看到库头。”→ 81 组密钥假设成立，且该 7 块即 manifest 的 blob_07.enc 候选。
+
+4) 0e83 7 块拼接得 shared/campA/blob_0e83.bin（8224B），前 28 字节= 00112233 重复 4 次 + 12×0xAA，其后为高熵密文。crc32(8224B)=0xf16531db，对 off∈{0,4,12,16,20,24,28,32,36,40,48} 各切片 crc 均≠manifest 的 0b733384，故该 8224B 与清单登记的 8395B 文件不是同一字节串（差 171B，可能少了“extra bytes”或最后一帧缺失部分）。
+
+5) 0e81 资产流性质（shared/campA/blob_0e81.bin，871,709B = 727×1198+763）：仅第 0 块以 1f8b0800 开头，flate 解出 1581B 明文，开头为 "QlpoOTFBWSZTWepzjdcBPRHJAGAQf+A/AGjBS4ifb63b7…"（base64 文本，行宽 76），其 base64 解码以 42 5A 68 即 "BZh" 开头 ⇒ 载荷链为 gzip( base64( bzip2(…)))，且 gzip 未尽（eof=False）。
+
+6) TCP 伪头给出块序号：seq == 1213*k+1（全 1457 帧中仅 1 帧不满足），k 在 0e81 组内严格单调 0..727 且互不重复；1213 = DoIP 头 8 + UDS 头 7 + 数据 1198 ⇒ “extra bytes before this frame”即 DoIP 前那 20 字节伪 TCP 头（IP 载荷 1233 = 20 + 1213）。同时 1886 个 DoIP 帧“实际字节−声明长度”全为 0，说明没有额外尾部字节。故块顺序天然正确，问题不在乱序。
+
+7) 有界负向（本轮实测，明确排除两条简单路径）：
+   a. 对 0e81：chunk0 的 zlib 状态用全部其余 727 块（每块完整 1198B）做后继尝试，0 个可续接 ⇒ 块与块之间确实缺字节（或每块做了变换），“顺序重排/直接拼接”不成立；campaign B 观察到的“invalid distance too far back”根因即此，而非块序错。
+   b. 对 0e83 blob：1620 条 key 字符串（81 组合 × 9 分隔符 × 大小写 + model=/json/紧凑等格式）× 约 50 种派生（SHA256/双 SHA256/HKDF-SHA256×{salt=0xAA×12, 握手 nonce, 空, 前 16B 前缀}×12 种 info）× ct 起点{0,16,28,32} × IV∈{0xAA×12, 握手 nonce, 0^12, blob[16:28], blob[:12], 00112233×3} × AAD∈{空, 前置前缀} ≈ 3.8M 次 AESGCM 全量标签校验：0 次通过 ⇒ 该 KDF/格式族与这些 IV/偏移安置全不成立（未覆盖的：每块独立 GCM、tag 前置、keystream 直接异或等）。
+可复用产物（cwd）：shared/campA/frames.pkl（4122 帧结构化）、blob_0e81.bin、blob_0e83.bin、sweep1.py（81 组密钥扫器，可直接扩参数）。
+
+### 8 [09:41:46]
+内层 pcapng 的 SOME/IP 资产已完整重组（28B 记录头 + 尺寸精确等于 manifest），manifest/备份说明全文已取到；81 组参数×93 种 KDF 的 keystream 预筛全空
+1) 资产通道定位并重组成功（本 Step 实测）：内层 pcapng 中 <target>:30501 → <target>:40000/40001 及 → <target>:40002 的 UDP 报文即 manifest 所称 SOME/IP over UDP 资产流，包数 707/1521/7 与 manifest 的 chunks 完全一致。
+每帧 = Eth+IPv4+UDP(8)+SOME/IP(16B: svc 0x1234, method 0x0001/2/3, len 0x057c, client 0x0e80, 01 01 a0 00) + 4B 大端字节偏移（1,1393,2785,… 步长 1392）+ 1392B 数据（末帧更短：1213/1086/91 字节 UDP 长）。
+按偏移顺序拼接得 983945 / 2116906 / 8423 B，前 28 B 为记录头：12B 结构化（00 02|03|04, 0000, 0001, 00000000, 0000，[0:2]=资产 id 2/3/4）+ 16B 随机。去掉 28 B 后长度精确等于 manifest 的 983917 / 2116878 / 8395 ⇒ 28B 头就是 “extra bytes before this frame”；其后 16B 随机有两种自洽解释：GCM tag（密文 983917B、IV 待定）或 16B IV（密文 983901B + 末 16B tag）。
+复用产物：shared/campB/extract_assets.py、assets/raw_40000|40001|40002.bin、README_campB_stepB.md、keys.py、scan2.py、gz2.py、rel.py。
+
+2) 全文提示（纠正 fact_005 的截断版）：DID F1A0(frame 15) manifest 末行为 blob_07.enc,8395,0b733384,7；DID F1B3(frame 1872) 完整备份说明 = 4 参数 型号 A1/A2/A3、年款 2021/2022/2023、工位 W1/W2/W3、批次 B1/B2/B3，「用对了才能看到库页头」。内层 DoIP 分组修正：ta=0e80 6 条(F1A0 260B)、0e81 728 条、0e82 200 条（全部 8B，DID=f1b2，未解析的控制通道）、0e83 8 条（284+6×1198+1036=8508B 随机数据）。0x22 请求里的数据 DID 每帧随机，并非固定。
+
+3) 有界负向（本轮实测，勿重复）：729 个参数串（4 参数 × 9 种分隔符 '' - _ | . : / 空格 ,）× 93 种 KDF 构造（sha256/sha512[:32]/blake2s/sha3_256/sha256²；HKDF-SHA256 输出 48B 与 32B，salt∈{空,0^32,DGPT/1,asset,name} × info∈{空,DGPT/1,AES-256-GCM,asset-key,key,asset,workshop,GW-2241}；PBKDF2-SHA256 it=1/1000/4096/10000）= 67797 个 key，× 5 种 IV 安置（hdr[0:12]/hdr[12:28]/hdr[12:24]/hdr[16:28]/zeros12，另含 HKDF 输出 [32:44]/[32:48] 作 IV）× 3 个资产做 GCM keystream 前缀判定：仅得 2 字节魔数巧合（1f8b / BM / ffd8ff，约 10^6 次判定的期望噪声），无 4/8 字节真魔数（PNG 89504e470d0a1a0a、RIFF、PK、%PDF、flag{ 均未出现）⇒「IV 取自 28B 头 + 密文自 offset 28 起」这一族 framing，或参数拼接/KDF 形式，仍然不对。
+
+4) 附带实测：0e81 的 DoIP/UDS gzip 流共 728 个唯一 1198B 块（每块因请求/响应镜像出现 2 次），asis 解压到 1581 B 报 invalid distance too far back，drop-last-20 到 1554 B 同样报错，skip-first-20 直接 incorrect header check，且 cur[:20] != prev[-20:] ⇒ 20 字节重叠/裁剪假设不成立。
+
+### 9 [09:57:03]
+三个 SOME/IP 资产均为 28B 头（12B 元数据+16B 随机）且载荷长度恰等于 manifest size；manifest crc32 不是存储字节的 crc；内层仅两处明文提示；0e81 gzip 流断点精确定位在输入偏移 1205
+本 Step 直接读取 shared/campB/assets/raw_40000|40001|40002.bin 与内层 plain.bin 得到的实测增量（未产出 flag）：
+
+1) 资产头精确字节（新）：
+   raw_40000: 0002 0000 0001 0000 0000 0000 | 9b6de929 e0bf2a8a b0936533 dfa5650b | ct...
+   raw_40001: 0003 0000 0001 0000 0000 0000 | bd4e95c0 590081f6 b9e2013d 8adc2714 | ct...
+   raw_40002: 0004 0000 0001 0000 0000 0000 | a7e6b2d7 edd4cc76 3d07bf78 ac420417 | ct...
+   即前 12B 三份资产仅首 2 字节（资产 id=2/3/4）不同，其余 10B 恒为 00 00 00 01 00 00 00 00 00 00；后 16B 为随机（每资产不同）；data[28:] 长度恰为 983917 / 2116878 / 8395，与 manifest 的 size 列逐位相同。
+
+2) manifest 的 crc32 不是对任何存储切片算出的（实测值）：crc32(全文件)=0xdea02dc5 / 0x00067890 / 0x7b1c93e7；crc32(data[28:])=0xfa127d14 / 0x736dbeb7 / 0xd65e26f9；crc32(data[12:])、crc32(data[16:])、crc32(data[0:]) 亦全部 ≠ manifest 的 0x39d7ed46 / 0x2a36dc64 / 0x0b733384。
+   ⇒ 结合“size 恰好等于 data[28:] 长度”，可判定：manifest 的 size/crc32 描述的是**明文**（crc 为明文 CRC32），28B 头是纯附加头；因此 16B 随机要么是 GCM tag（tag 前置、密文=data[28:]），要么明文长度=size-16（tag 在密文末）。这两个 framing 都保持 plaintext[0] 对应 data[28]，故“PNG/WAV 魔数 keystream 前缀判定”与 tag 位置无关，仍然成立；而 crc32(明文)=manifest 值可用作找到 key 后的全局判定 oracle（尤其对 8395B 的 blob_07 极便宜）。
+
+3) 全量明文提示扫描（新，穷尽 4122 包）：只有两处可读文本——frame 15 的 manifest（275B）与 frames 1872/1873 的备份说明（299B，请求/响应各一份）。备份说明全文已复核：型号 A1/A2/A3、年款 2021/2022/2023、工位 W1/W2/W3、批次 B1/B2/B3，「用对了才能看到库页头」，与本 Step 观察的资产头结构无额外 KDF/IV 参数泄露；内层不存在第三种提示报文。
+
+4) 0e82 通道确认为 decoy（新）：400 条（200 请求 + 200 响应，完全镜像），每条载荷恒为 8B = deadbeef + 4B 大端计数器，计数值严格 0,0,1,1,...,9,9（0..9 两轮），不含任何可派生密钥/IV 的随机量。
+
+5) 0e81 gzip 断点精确化（新，细化 fact_006/007 的 dead end）：把 728 个 1198B 块按 TCP seq 顺序拼接成 871,709B 流，用 decompressobj 逐字节喂入，前 1205 字节均可解析（输出 1590B，尾部为 base64 文本），错误发生在输入偏移 1205（=1198+7，即第 2 块的第 8 字节）；单独喂第 0 块输出 1581B 且不报错。
+   另实测：对“每帧前缀 ∈ {无, TCP20B, DoIP8B, UDS7B, 任意两两组合, 三者组合}，首帧与前缀处理分开枚举”的全组合，decompress 输出一律停在 1581B（第 1 块后立刻报 invalid distance too far back）⇒ 缺口不在帧前缀（TCP/DoIP/UDS 头都不是被裁掉的流内字节），而是发生在第 0/1 块交界附近约 7 字节处；任何“整 20B/7B 前缀回填”的假设可直接排除。
+
+6) 未完成/明确不计为排除：本轮启动了一次 81 参数组合 × 宽 KDF 族（raw 零/空格填充、循环重复、md5/sha1/sha256/sha512/blake2s/blake2b/sha3_256、双 SHA256、15 种 salt × 13 种 info 的 HKDF-SHA256/512）× 多 IV 安置 × 资产偏移 0/12/16/28 的 PNG(89504e470d0a1a0a)/WAV(RIFF..WAVE)/其他魔数 keystream 预筛，但收尾前被中止，结果未落盘核对，故不得视为已排除；下一环可直接复用 shared/g5/sweep.py（工作目录 cwd）继续，建议先跑完并把命中/未命中如实记录。
+
+### 10 [10:00:10]
+独立重解析内层包：4122 包（2236 UDP+1886 TCP，cap==orig，IP 后无尾随字节）、SOME/IP 偏移连续性确认、manifest crc32 不是密文 CRC；全文中文备注末句为“才能看到库页头”(疑指 SQLite/数据库页头)；x 派生密钥复用外层 key 全空
+本轮用自写解析器（work/p1.py、p2.py、p3.py、p6.py、p7.py）对 shared/campB/plain.bin 做的独立复核与新增实测：
+
+1) 包级统计：4122 个 EPB 全部 cap==orig，且 0 个包在 IPv4 total length 之后还有尾随/填充字节 ⇒ “extra bytes before this frame” 不是以太网填充或截断造成的（只可能是 DoIP 前的 20B 伪 TCP 头，以及资产流前的 28B 记录头）。
+   流量清单（唯一 12 条流）：udp <target>:30501→<target>:40000=707、→40001=1521、→<target>:40002=7；tcp 13400：.52:52001 728+728（双向）、.52:52002 200+200、.52:52003 8+8、.50:49152 7+7；<target>:13400→255.255.255.255:13400 广播 1 包（VIN LSVAM4180E2100001）。
+
+2) SOME/IP 资产流结构逐帧核实：UDP 载荷 = 16B SOME/IP + 4B 大端字节偏移 + 数据；完整帧数据 1392B，末帧 1193/1066/71B；偏移为 1 基（首帧 off=1），且 offset[k+1]=offset[k]+datalen[k] 成立 ⇒ 拼接无缺口；总和 983945/2116906/8423，减去 28B 记录头后精确等于 manifest 的 983917/2116878/8395。唯一小异常：40000 流倒数第二→末帧偏移差为 1391（应为 1392），与总长仍自洽，属生成器 1 基偏移写法。
+   三个资产 28B 头：raw_40000 = 0002 0000 0001 0000 0000 0000 + 16B 随机；40001 用 0003、40002 用 0004 作第 1 字段（即资产 id=2/3/4）。
+
+3) manifest 的 crc32 不是密文 CRC（新判据）：crc32(整段流)、crc32(st[28:])、crc32(st[28:-16])、crc32(st[0:12])、crc32(st[12:28]) 均与 manifest 的 39d7ed46/2a36dc64/0b733384 不等 ⇒ 该 crc32 很可能登记的是**明文** CRC，一旦试出密钥即可用 crc32(明文) 做廉价判定（比 GCM tag 预筛更强）。
+
+4) 中文备注全文（0e83 通道 DID F1B3，284B，请求/响应各一份，UTF-8）："备份说明\n----------------\n本文件不是压缩包，别用 7z/zip 去开。\n密钥由 4 个参数组合而成，每个参数有 3 个候选：\n  型号: A1 / A2 / A3 \n  年款: 2021 / 2022 / 2023 \n  工位: W1 / W2 / W3 \n  批次: B1 / B2 / B3 \n用对了才能看到库页头。\n"
+   ⇒ “库页头”最自然的读法是「数据库页头」，即正确密钥解出的首个资产头应为 SQLite 的 "SQLite format 3\0"（或类似库文件头）。此前两轮扫描的魔数表只有 PNG/RIFF/ZIP/gzip 等，**没有 SQLite 魔数**，若目标确实是库文件则旧预筛必然漏检。work/sweep2.py 已把 'SQLite format 3\0' 纳入判定魔数表（并去掉 1 字节魔数如 '{' 以免噪声）。
+   另：对整份明文 pcapng 做 strings 全扫描，人类可读串只有 VIN、manifest 三行 + 表格、上述备注，没有任何 KDF/盐/迭代次数说明；52001/52003 帧的 DID 逐帧随机，52002 为 200×deadbeef+4B 递增计数（0..199），无密钥材料。
+   （附带更正观察）0e83 的 28B 头是纯确定值 00112233×4（16B）+ 0xAA×12（12B），与 UDP 资产的「12B 结构化 + 16B 随机」布局不同，说明 0e83 通道未必与 manifest 三资产同族。
+
+5) 有界负向（本 Step 实测，勿重复）：以共享秘密 x 直接派生、或复用外层数据密钥，对三个资产做 8 种 IV 安置（zeros12 / handshake nonce / hdr[0:12] / hdr[12:24] / hdr[16:28] / hdr[12:28](16B) / hdr[0:16] / x[:12]）× 8 个明文字节偏移（0,4,12,16,24,28,32,44）魔数判定，候选为 outer_key=959d9c3c…ee6c、sha256(x)、HKDF(x, nonce, {"DGPT/1","asset",""})、HKDF(x||0^32,·,DGPT/1)、raw x：0 命中 ⇒ 资产密钥不是「外层 key 复用」也不是「x 的单步哈希」。
+   未完成部分（不得当作已排除）：参数串 KDF 大扫描（ikm/salt/info 组合 + 中文/键值格式串）因工具缺少 shared/solve 的 ks 模块 import 路径而在起跑阶段中止，未取得任何阴性结果；下一步应先修好 GHASH/16B-IV 的快速实现（Crypto.Hash.GHASH 在本环境不可用，需 nibble 表乘法或只用 12B IV），再跑 1215 个参数格式串 × KDF 族，判定标准建议直接用「明文 crc32 == manifest crc32」。
+可复用产物：work/p1..p7.py（解析/流量清单/UDS 文本 dump）、work/pkts.pkl（4122 帧结构含 seq/ack/plen）、work/gen2.py（1215 种 4 参数格式串生成）、work/sweep2.py（含 SQLite 魔数与 IV/偏移枚举的判定器）。
+
+### 11 [10:11:47]
+UDS 安全访问算法=seed XOR 0x5A（与密钥无关）；三资产均满足 total=12+size+16；22,392 个参数派生密钥 × 12 种 GCM 框架对 blob_07 全空
+本 Step 实测增量（未获 flag；均为可复用的确定结论/有界负向）：
+
+1) 26 27 01/02 安全访问算法被反解出来（新，确定）：seed=11 22 33 44 55 66 77 88，key=4b 78 69 1e 0f 3c 2d d2，逐字节 XOR 结果 ≡ 0x5A×8（11^4b=22^78=…=88^d2=5a）。即 UDS 的 seed→key 只是单字节 XOR 0x5A，说明该握手不携带任何密钥材料、也印证作者偏好"简单 XOR 常量"的实现风格。
+
+2) 资产 framing 的算术一致性（新，实测）：raw_40000/40001/40002 长度分别 983945/2116906/8423，且三份都精确满足 len = 12 + manifest_size + 16（12 字节头 + size 字节密文 + 16 字节尾部）。故 [12B IV/记录头][size B ct][16B tag] 与 [28B 头][size B ct] 两种布局在长度上不可区分；12 字节头三份仅首 2 字节不同（0002/0003/0004），其余恒为 00 00 00 01 00 00 00 00 00 00，天然适合作为 12 字节 GCM nonce。
+
+3) 有界负向（本 Step 实测，勿重复）：构造 22,392 个候选 32B 密钥——81 参数组合 × 15 种分隔符/空分隔 + 标签式（model=/;、JSON、中文"型号…"）+ 每参数 ljust/rjust 到 8 字节（pad∈{0x00,0x20,'0'}，即 4×8=32 字节"组合而成"直填） + sha256/sha256²/sha512[:32]/sha3_256/blake2s/blake2b/md5²/sha1 重复/raw 零或空格左右填充/三倍重复——对 raw_40002（blob_07.enc，8395B 密文）逐一做 12 种 AES-GCM 框架全量标签校验（IV∈{st[0:12], st[12:24], st[16:28], st[12:28] 16B}；ct∈{st[12:-16], st[28:-16], st[24:-16], st[28:]}；tag∈{st[-16:], st[12:28]}；AAD∈{空, st[0:12], st[0:28], name, 握手 nonce, name+'\n'}）：0 次通过。GCM 标签是 2^-128 精确判据，故"密钥=81 参数组合的上述常规派生 × 这些 IV/AAD 安置"已被真正排除（不是可读率噪声）。
+
+4) 0e81（52001）通道补齐观察：每条 TCP 载荷恒 1213B = DoIP 8B(02 fd 8001, len=1205) + UDS 7B + 1198B 数据，seq 按 1213 递增（伪头）；UDS 头 = 0e81 0010 22 <2B DID>，DID 逐帧变化（首帧 f1b1，次帧 0dba…），因此"把 UDS 头 7 字节当作 gzip 流的一部分"这一填补假设缺少稳定字节来源；末帧 TCP 载荷 778B（DoIP len 0x0302）。728 个唯一块，无重复 seq。
+
+5) 未完成（不计为排除）：0e83 blob（8224B，头 00112233×4 + 0xAA×12）与本轮的密钥族/框架尚未做同一套 GCM 全量交叉验证；0e81 gzip 断点（输入偏移 1205 = 1198+7）的修复方式仍未确定。工具已留在 me/sweep.py（密钥生成 + 12 框架 GCM 校验，可按 5.7µs/次速度扩展）与 me/p.py（内层 pcapng → me/frames.pkl，按 src/dst/proto/端口可直接取任意通道载荷）。
+
+### 12 [10:21:12]
+资产密文无 ≤48 周期重复密钥流（排除重复 XOR/PAD 类"印度同款"）；0e81 首块 gzip→1581B base64→1140B bzip2(BZh9..)，部分解压 0 字节
+本轮实测（承接 fact_006/009/010，未获 flag；均为增量观察，范围有限）：
+
+1) 资产流不是重复密钥流 XOR（有界负向，新）：以 manifest 声明的明文头做已知明文攻击——PNG 资产 raw_40000 的 ct=data[28:] 前 64 字节 XOR \x89PNG\r\n\x1a\n 得到的 keystream 在周期 p∈{1,2,3,4,5,8,12,16,20,24,28,32,36,48} 下均不成立（唯一"成立"的是 p=64 即整段，平凡）。因此「重复单/短周期 XOR / 朴素的 IV=密钥重复」这一类（若把题面"印度神秘同款"理解为弱异或）对资产层可排除；WAV 资产前 4 字节 XOR b'RIFF' 得 2f35f438，同样无结构。
+   另：三份资产 data[28:] 的 16 字节对齐块全部互不相同（983917/2116878/8395 字节分别 61494/132304/524 个块，最大重复计数 1），进一步印证为流式/计数器型加密（CTR/GCM）而非 ECB 重复块。
+
+2) 0e81（UDS 52001，728×1198B）gzip 链首块实测细节：单独 zlib.decompressobj(31) 喂 b[:1198] 输出恰 1581 字节、eof=False；该输出为 base64 文本（行宽 76，20 整行 + 41 字节残行）。取完整行（1520 字符）base64 解码得 1140 字节，以 42 5a 68 39 31 41 59 26 53 59 ea 73 8d d7 01 3d 开头 = bzip2 头 "BZh9"+"1AY&SY"+块魔数，与 fact_006 的 gzip(base64(bzip2)) 结论一致；但 bz2.BZ2Decompressor 对这 1140 字节解出 0 字节（输入不足，未报错），故该内层 bzip2 内容在拿到完整流之前不可读。
+   逐字节喂入时错误精确定位在输入偏移 1205（=1198+7，即第 2 块数据的前 7 字节被消耗后报 "invalid distance too far back"）；由于此时解压输出仅 1581 字节，而 deflate 报"距离回退过远"意味着引用点距离 > 已输出长度，说明缺的不是 7 字节而是一段上游数据 ⇒ "仅补 20B/7B 帧前缀即可续接"的假设仍不成立。
+
+3) 复核（与既有 fact 一致，仅作定位）：0e83 通道 blob 8224B 头 = 00112233×4（16B）+ 0xAA×12（12B），后接高熵数据；与 UDP 资产的「12B 结构化(仅首 2 字节是资产 id 2/3/4) + 16B 随机 + size B 数据」布局不同族。manifest 与备份说明原文（UTF-8 逐字节核对）与 fact_006/009 完全相同，末句确为"用对了才能看到库页头。"。
+
+未完成（不计为排除）：库/文件头判据下的参数密钥大扫描仍未跑完（本轮无新命中）。
+
+### 13 [10:27:13]
+有界负向：2,581,632 个"4参数串×材料 HKDF/SHA 三重积"密钥×9 种 GCM 框架对 blob_07 全量标签校验 0 命中；0e81 各帧非独立 deflate 块；GCM 全量校验实测 5.7µs/次（8 进程≈1.3M key/s/framing）
+本 Step 实测（未获 flag，均为可复现观察/有界排除）：
+
+1) 新工具（cwd/g8/）：lib.py（资产加载 + 10 种 framing + HKDF/crc 封装）、sweep1.py（先验假设定向扫，10 种派生 × 10 框架，213,840 次全量校验 0 命中）、sweep2.py + run2.py（大规模多进程扫器，9 种 GCM framing：IV∈{st[0:12], st[12:28](16B), st[16:28], st[12:24]} × ct∈{st[12:-16], st[28:-16], st[28:]} × tag∈{st[-16:], st[12:28]} × AAD∈{空, st[0:12], st[0:28], 资产名}）。
+
+2) 性能实测（可复用）：8395B 的 blob_07 用 AESGCM.decrypt(ct+tag) 做全量标签校验仅 5.68µs/次（单核≈175k key/s/framing，8 进程≈1.3M key/s/framing）；AES-CTR 全量解密+CRC32 为 7.53µs/次。故 "crc32(明文)==manifest crc32" oracle 同样可负担（10^7 量级秒级），此前"keystream 魔数前缀预筛"并非必要。
+
+3) 有界负向（本轮实测，勿重复）：1,296 个 4 参数格式串（81 组合 × 12 分隔符，另加 model=/year=/station=/batch= 标签式、中文"型号:…"式、GW-2241 前缀/后缀式）× 每串 1,992 个候选 32B 密钥（材料集 {X, Xhex, handshake nonce, noncehex, st[0:12], rand16, st[0:28], 参数串, 资产名, "DGPT/1", "GW-2241", ""} 的 HKDF-SHA256(ikm|salt|info) 全部 12^3 三重积 + SHA256(双材料拼接) 及其 16B 截断 + HKDF-L=48 的 key=[0:32]）= 2,581,632 个密钥，对 raw_40002 逐一跑上述 9 种 GCM 框架全量标签校验（≈23.2M 次解密）：0 命中。据此"密钥 = 4 参数串与 ECDH-x / nonce / 资产头 / 资产名的 HKDF 或 SHA 直接组合"这一族在所有常见 IV/tag/AAD 安置下已被精确排除（2^-128 判据，非可读率噪声）。其中特别覆盖了此前未测的 "info=参数串"（即与外壳 HKDF(x, salt=nonce, info="DGPT/1") 完全同款、仅把 info 换成参数串）假设。
+
+4) 0e81（TCP 52001，728 帧）新观察：727 帧 TCP 载荷 1213B（DoIP len 0x04B5=1205）、末帧 778B（DoIP len 0x0302=770）；seq=1,1214,…,881852 ⇒ k=0..727 连续无缺帧。对 6 个不同帧单独以 raw-deflate（wbits=-15）解压，全部立即报错（invalid block type / invalid code lengths set / invalid stored block lengths）⇒ 各帧不是独立 deflate 块，流连续，断点仅在输入偏移 1205（逐字节喂入输出 1590B 后报 invalid distance too far back；512B 批量喂入输出 1339B）。
+
+5) 未完成（不计为排除）：PBKDF2 高迭代 × 参数串、AES-128（16B key）系统枚举、非 GCM 模式（CTR/CBC/CFB/OFB 以 crc32 为 oracle）的大规模扫描均未跑；只需替换 sweep2.gen_for_string 的密钥生成器即可复用现有框架。
+
+### 14 [10:32:56]
+复核 52001 通道帧结构（DoIP len=1205 恰等于 UDS7+数据1198，故每帧流载荷应为 1198B）；gzip 断点在首个块边界，仅丢弃 chunk1 第 1 字节即可让解压继续产出 3232B 合法 base64 文本，但\"每个边界都丢 1 字节\"仍失败
+本轮用自写解析（n1/parse2.py、n1/recs.pkl，直接从 shared/campB/plain.bin 逐包解析）得到的实测增量：
+
+1) 精确帧结构（纠正/澄清此前 1193/1198 之争）：52001 通道每帧 Ethernet 总长 1267B，IPv4 total_len=1253，TCP doff=20，故 TCP 载荷=1213B；其中 DoIP 头 8B（02 fd 80 01 | 00 00 04 b5，len=0x4b5=1205）之后恰好还有 1213-8=1205B = UDS 7B（请求 0e81 0010 22 <DID2>；响应 0010 0e81 62 <DID2>）+ 数据 1198B。即 DoIP 声明长度与实际字节完全自洽，没有任何缺字节；每帧真正的 gzip 流载荷是 1198B（727 帧）+743B（末帧 TCP 778B）。所以先前 fact_012「TCP 载荷 1213 = 8+7+1198」正确，而把每帧流载荷当成 1193B 的提取是次生 bug。
+   另：每帧数据都不在其 IPv4 total_len 之外（无尾随字节），728 对请求/响应除 UDS 头的 SA/TA/SID 互换（22↔62）外，1198B 数据逐字节相同（728/728）；UDS 的 DID 两字节逐帧不同（f1b1,0dba,ec14,…），无索引含义。
+
+2) gzip 断点的精确量化（新，且是可直接复用的观察）：把 728 帧的 1198B 数据按 seq 顺序拼接得 871,709B，zlib.decompressobj(31) 逐字节喂入时在输入偏移 1205 处（=1198+7）报 invalid distance too far back，累计输出 1562B。对 chunk0(1198B) 先解出 1581B base64 文本后，如果把下一帧数据的第 1 个字节丢掉（即喂 chunks[0]+chunks[1][1:]），解压不再报错并继续输出到 3232B，内容仍是合法 base64 文本，开头和第 0 块解出的文本无缝衔接（QlpoOTFBWSZTWepzjdcBPRHJAGAQf+A/AGjBS4ifb63b7…）。
+   但\"所有边界都丢 1 字节\"（stream=chunk0+concat(c[1:] for c in chunks[1:])，870,982B）仍在后续边界报同一错误 ⇒ 边界处理不是统一的 1 字节偏移。
+
+3) 有界负向（本 Step 实测）：以\"解压输出全部落在 base64 字符集(含换行)\"为判据做逐边界贪婪搜索（n1/greedy.py，用 zlib.decompressobj.copy() 复制状态）不可靠——在边界 1 有 s=1,4,5,7,11,15,17,29 等多个 shift 都能产出合法 base64（因为该文本高度自引用，错误比特常被 copy token 复制成 base64 字符），到边界 11 则 0..60 内无候选。故该判据不能定位真解，后续必须换成更强 oracle（base64 解码后喂 bz2.BZ2Decompressor，BZh9 头已由 fact_011 确认）或对边界做位级重同步。
+
+4) 复核实测（与既有 fact 一致，仅作定位）：三份 UDP 资产仍为 [12B 0002/0003/0004+0000 0001 00…][16B 随机][size B] 布局；ct 起点 32 字节高熵（256 个不同字节、可打印率≈0.354），crc32(全文件)/crc32(data[28:]) 依次 0xdea02dc5/0xfa127d14、0x00067890/0x736dbeb7、0x7b1c93e7/0xd65e26f9，均不等于 manifest 登记的 39d7ed46/2a36dc64/0b733384（再次印证 manifest crc 描述明文）。
+
+可复用产物（cwd）：n1/parse2.py（plain.bin→n1/recs.pkl，含 tcp/udp 分离、data/pl 字段）、n1/greedy.py（状态复制式逐边界 shift 搜索脚手架）。
+未完成（不计为排除）：0e81 gzip 流的正确跨边界重组方式仍未确定。
+
+### 15 [10:41:14]
+0e81 gzip 流每帧边界"跳过 5 字节"可把合法 base64 输出从 1581B 推到 25090B（skip 0..40 全扫，唯一显著值）；内层 pcapng 头部字段无隐写、无 flag 编码残留
+本 Step 实测增量（未获 flag，均为可复现观察；工具即 bash 内联脚本，数据源 n1/recs.pkl 或 shared/campB/plain.bin）：
+
+1) 52001（0e81）帧结构复核与精确切片：每帧 TCP 载荷 1213B = DoIP 8B（02fd8001000004b5）+ UDS 7B（0e81 0010 22 <DID2>）+ 数据 1198B，末帧 778B（数据 743B）。按 seq 排序去重得 728 帧唯一块（seq 无缺、无重复）。数据起点是帧内偏移 15（不是 8，也不是 20）。
+
+2) 边界缺字节量的新量化（关键新观察）：对"首块完整 + 其后每块统一丢掉前 s 字节"的族，扫 s=0..40 并把解压输出按 512B 批量累积（避免异常丢弃已产出字节）：
+   - s=0/2/3 → 1339B 后报 invalid distance too far back；
+   - s=1/4/7 → 2752~2753B；
+   - s=11/15 → ~7700B；s=17/29 → ~21709B；
+   - **s=5 → 25090B 才报 invalid distance code**，且这 25090B 全部为合法 ASCII（base64 字符集+换行，头部 QlpoOTFBWSZTWepzjdcBPRHJAGAQf+A/… 与 fact_011 一致）。
+   即"每个块边界丢掉 5 字节"这一族显著优于其他所有 s（约为其余最好值的 1.16 倍、为 as-is 的 18.7 倍），进一步印证"边界处有固定长度插入/裁剪"而非块乱序；同时 s=5 仍非终解（在后续某个边界失效），说明每块被插入的字节数可能不是恒定 5（或需要逐边界自适应）。
+   复用方法：同一脚本可把 s 换成"逐边界变长候选（0..k）"做状态复制搜索，判据建议用"base64 解码后喂 bz2.BZ2Decompressor 能继续产出"，而不是可打印率（fact_013 已指出可打印判据不可靠）。
+
+3) 有界负向（新，勿重复）：把 4122 帧的 IPv4/Ethernet/TCP 头字段逐项统计后发现全部恒定或与数据无关——eth dst 仅 5 个固定 MAC、src 仅 2 个、ethertype=0800、ihl=20、tos=0、frag=0、ttl=64、TCP flags=0x18、window=0x2000、doff=20、urg=0，pcapng 时间戳恰好每包相差 10000（10ms，4121/4121），因此"信息藏在包头/时间戳/IP ID"这类隐写可排除（IP ID 亦未呈数据样分布）。
+
+4) 有界负向（新）：内层明文 shared/campB/plain.bin 全文检索 b'flag'/'FLAG'/'Flag'/base64(b'flag')=b'ZmxhZ'/hex(b'flag')=666c6167/UTF-16 'f\x00l\x00a\x00g\x00' 均为 0 次命中 ⇒ flag 不在内层明文（含 UDS 数据区）里，只可能在三个 SOME/IP 加密资产或 0e81 压缩链之内，与此前"flag 需解密资产"的判断一致。
+
+5) 附：gzip 头为 1f8b 08 00 5b85e16a 02 ff（FLG=0、XFL=2、OS=0xff，Python gzip 典型输出，mtime=0x6ae1855b=1792283995 对应生成时间），可作为"这是脚本真实生成的 gzip 成员、非随机噪声"的佐证。
+
+### 16 [10:50:35]
+0e81 gzip 流是单 gzip member，每帧载荷尾部带\"变长垃圾字节\"（非恒定 20/7/5 字节）；用自写 inflate 定位首错为 dynamic 块内 distance 1672 > 已输出 1590，逐帧局部修复跳过后解出 1,147,069 字节且 100% 均为合法 base64 字符（原样拼接仅 1,581）
+本轮独立实测（数据源 shared/campB/plain.bin，自写解析 n1/recs.pkl；未取得 flag，但把 0e81 断点从\"不可解\"推进到\"模型确定、只剩逐帧垃圾长度未定\"）：
+
+1) 复核提取（确定）：UDP/TCP 52001 通道 728 帧按 seq 排序与按 ts 排序得到的 chunk 序列完全相同（seq=1213k+1 连续无缺帧）；每帧 TCP 载荷 1213B = DoIP 8B（02fd8001000004b5，len=1205）+ UDS 7B（0e81 0010 22 <DID2>）+ 数据 1198B，末帧数据 763B（前一版本 fact 记的 743/1178 均为提取偏差）。拼接共 871,709B；gzip 头 1f8b08005b85e16a02ff 后第 10 字节起即 deflate。
+
+2) 新增可复用工具 cwd/g11_inflate.py：约 100 行的纯 Python inflate（stored/fixed/dynamic 块、符号级日志、可报告 \"bad distance\" 事件与位位置）。实测与 zlib 完全一致：喂 chunk0+chunk1 时输出 1590B 后报 baddist=distance 1672, out=1590（赤字仅 82），且位于**同一个 dynamic 块内**（block 1, btype 2）⇒ 不是新 member、不是缺整块，而是流内比特级失步。
+
+3) 关键模型结论（新）：\"每帧统一跳过固定 s 字节\" 不成立（s=0→1590B、s=1/4/7→2752、s=5→25090 且随后崩），而\"逐帧跳过长度不同的尾部垃圾\"成立。做法：用 decompressobj.copy() 逐帧前进，某帧喂入报错时在 s=1..200 中取第一个\"该帧剩余部分可无错解完\"的 s，继续。结果：727 个边界里有 122 个需要跳过（跳 1 字节 112 次、2 字节 6 次、3 字节 2 次、4 字节 2 次、8 字节 1 次：chunk 1,12,15,18,23,24,29,42,43,44,51,52,63,93,97,103,105,118,120,131,135,137,140,145,146,149,150,163,168,178,184,188,191,193,196,201,218,226,236,239,255,257,262,270,275,276,286,301,313,316,319,325,328,338,355,359,363,377,392,393,396,411,414,419,424,430,433,437,441,444,452,456,460,461,466,471,486,488,494,498,503,526,529,531,537,549,554,555,559,562,563,565,572,575,580,588,599,608,612,618,624,626,630,640,641(8),643(3),664,667,676,677,684,691,699,700,706,709,711,712,717,721,723,725(3)），解压总输出 1,147,069B。
+   判定依据（强）：这 1,147,069 字节**全部**落在 base64 字母表+换行内（0 个非法字节）；若同步错误，deflate 会立刻产生 0x80~0xFF 之类的非 base64 字节，随机通过 1.15M 字符的概率为零 ⇒ \"每帧数据 = 真流切片 + 变长尾部垃圾（多数为 0，少数 1~8 字节）\"这一框架成立，且垃圾在帧尾/下一帧帧首等价。
+
+4) 未完成（不计为排除，明确交接）：该 greedy 修复在最后一块（chunk 727，763B）无解，且输出长度 1,147,069 % 4 = 1（base64 需 4 的倍数，差 3 个字符），故 b64decode 报 Incorrect padding、bz2 链尚未打开。下一步最省力路线：(a) 把 a_k 的选择从\"局部 greedy\"换成\"一旦该帧解完就把状态当作正确\"并继续到末尾，同时在 chunk 727 用 s=1..200 宽搜（很可能末尾仍缺 3~8 个真实字节，需从 52001 的响应向帧或 0e83 通道补）；(b) 更好的判据是位级重同步：用 g11_inflate.py 的日志找出错位置的 deflate 符号（length/dist），反推应插入/删除的比特数（当前首错赤字 82 说明该处需要约 82 字节以上的输出或等价比特移位）；(c) 拿到完整 base64 后 b64decode→bz2（BZh9 头已确认）→再看内层文件。
+
+复用产物：cwd/g11_inflate.py（符号级 inflate，可报告 baddist 及位偏移）、cwd/g11_stream.b64（1,147,069B 纯 base64，仅末 3 字符缺失/可能局部错位）、n1/recs.pkl（帧结构）。
+
+### 17 [11:00:17]
+g11 贪心重组出的 1,132,323 字符 base64 解码为 849,240B 且以 \"BZh9 1AY&SY\" 开头，但 libbz2 立即报 data integrity error ⇒ 贪心修复在早期即有错位（非真流前缀）；外层与内层 pcapng 均无 IDB/SHB/EPB options、无尾随字节
+本 Step 的实测增量（未获 flag；对既有 fact 的复核 + 新的有界结论）：
+
+1) 对 fact_015 产物 g11_stream.b64（1,147,069B）的实际检验：
+   - 字符集仅 base64 字母表+`\n`（65 种，14,746 个换行）；去掉换行后 1,132,323 字符（%4=3），b64decode 得 849,240B，头 16B = 42 5a 68 39 31 41 59 26 53 59 ea 73 8d d7 01 3d 即 "BZh9"+"1AY&SY"+块 CRC。
+   - 但 bz2.BZ2Decompressor 在第 0 步即抛 OSError "Invalid data stream"，bzip2 -dc 报 "Data integrity error when decompressing"（输出 0B）。
+   - 对照实验（本轮自测）：把合法 bz2 流截断到 50%/90%/99% 时 libbz2 返回 0 字节但*不报错*(eof=False)。因此本流不是"被截断的合法 bz2"，而是流中早期就有位级错误 ⇒ fact_015 的"每帧跳过变长尾部垃圾、全部输出均为 base64"判据不足：base64 文本高度自引用使错误比特被 deflate copy token 复制成合法 base64 字符，贪心修复所得并非真实 base64 文本（也与 fact_013 的告警一致）。后续若要修 0e81，必须以 bz2 可解码或 gzip footer(CRC32/ISIZE) 为 oracle，而不能用"输出全 base64"。
+
+2) 独立复测"每帧统一跳过 s 字节"族（chunk=52001 每帧 data[15:] 共 1198B，末帧 763B，按 ts 排序）：输出长度 s=0→1581、1→3232、2→1581、3→1581、4→3228、5→25286、6→1581、7→3224、8→1581；drop-last4→1576；drop-last20→1554。与 fact_014 的 s=5 最优现象一致，且所有变体都在后续边界报错 ⇒ 固定偏移族仍不成立。
+
+3) 有界负向（新，两层都实测）：直接解析 shared/extract/fixed.pcap（外层，381 块=SHB+IDB+379 EPB）与 shared/campB/plain.bin（内层，4124 块=SHB+IDB+4122 EPB）：
+   - 只存在 0x0A0D0D0A / 0x00000001 / 0x00000006 三种块类型；SHB body 仅 4d3c2b1a 01000000 ffffffffffffffff；IDB body 仅 01000000 00000400（linktype 1, snaplen 0x40000）；两文件均无 SHB/IDB options、无未知块、文件末尾无尾随字节（长度完全等于最后块末尾）。
+   - 全部 EPB 的 options 区长度=0（nonzero opts 计数 0）⇒ "提示藏在 pcapng 元数据/注释块" 这一族可排除。
+
+4) 52001 的 TCP 伪头字段实测：20B 头中 offset 0..3=cbc?cb 21 34 58、4..7=seq=1213k+1、8..11=ack=1213(k+1)+1、12=0x50/13=0x18/14=0x20/15=0x00/18..19=0，仅 seq/ack/校验和(16..17)变化；故 TCP 头除序号外无额外隐藏通道（与 fact_014 结论一致）。
+
+5) 附件外层冗余核查（新）：zip 内 __MACOSX/._attachment.7z 仅 176B AppleDouble，内容为 "Mac OS X" 头 + com.apple.quarantine（0082;6ae54878;WeChat）属性记录，无可复用数据/隐藏文件。
+
+可复用结论：0e81 的 gzip 链目前只有"存在逐帧插入/缺失字节"这一模型成立，尚未找到正确重组；判定 oracle 必须换成 bz2 解码成功或 gzip footer 校验。
+
+### 18 [11:08:49]
+0e81(gzip)重组：\"每帧固定裁剪 (o,L)\" 全参数族无解（全 71 万组合中局部最优也只能到 25,286B）；块序确认正确（只有 chunk1 能接 chunk0）；且 \"chunk0 尾部丢 1B\" 与 \"chunk1 首部丢 1B\" 在解码上完全等价 ⇒ 局部可解性不足以判定，必须换全局 oracle
+本 Step 从 shared/campB/plain.bin 独立重解析（自写 pcapng 解析，产物 cwd/x_parse.py → cwd/x_recs.pkl）后的实测增量（未获 flag）：
+
+1) 通道结构复核（与 fact_013/015 一致，可作基准）：4122 EPB；52001 通道 728 帧，TCP 载荷 727×1213 + 1×778；DoIP 头 02fd8001 000004b5（len=1205=UDS7+数据1198）；UDS 头 0e81 0010 22 <DID2>，DID 逐帧随机（f1b1,0dba,ec14,8565,b60a,b2df,9971,2ca3…）；gzip 流数据起点 = TCP 载荷内偏移 15，长度 1198（末帧 763）。
+
+2) 新：\"每帧取同一 (o,L) 切片\" 全族穷举（o=0..1198，L=1..1198-o，仅用前 5 帧判定\"解压输出全部落在 base64+换行\"）：339 个候选能产出 >2000B 全 base64 输出（局部判据完全不具区分度，最优 8164B 于 (o=5,L=1194)）。
+   把最优若干全流跑完（x_full.py）全部失败：
+   (0,1198)/(0,1178)/(20,1178)/(0,1193)/(0,1190)/(0,1150)/(0,1000) → 输出 1581B 后 \"invalid distance too far back\"；
+   (5,1194)/(4,1193)/(5,1198) → 25,286B 后 \"invalid distance code\"；(1,1192) → 18,975B 后 \"invalid stored block lengths\"；
+   (1,1198)→3232、(4,1198)→3228、(7,1198)→3224、(11,1198)→8132 后各自报错。
+   ⇒ 此前 fact_014 的\"统一丢 s 字节\"现象可被更完整地刻画为：s=5/4 族最好（≈25.3KB）但仍非解，且任何固定 (o,L) 都不能走完全流。
+
+3) 新（块序判定，强）：对 chunk0 + chunk_i（i=1..727，i 的整块 1198B，另在每个 i 上再枚举首部丢 s=0..24 字节）共 ~1.8 万次解码，只有 i=1（即 seq 顺序的下一个块）能突破 1581B（s=1→3232、4→3228、5→3227、7→3224、11→3219、15→3212、17→3211），其余 726 个块 0 命中 ⇒ 帧序 = 流序（seq 序）已被解码器本身验证，\"乱序/置换\"假设可彻底排除。
+
+4) 新（关键机制观察）：对 (e0=chunk0 尾丢 0..8, s1=chunk1 首丢 0..8, s2=chunk2 首丢 0..8) 共 729 组合做 3 块解码，190 组合无错通过，且 (e0=0,s1=1,s2=0) 与 (e0=1,s1=0,s2=0) 输出完全相同（均 4887B）。即\"上一帧尾部少 1 字节\"与\"下一帧首部多 1 字节\"在 deflate 解码上不可区分（等效滑动），这正是 fact_015 贪心选出的分支不可信、最终 bz2 报 integrity error 的根因；同时也说明正确的重组量不是\"每帧固定垃圾长度\"，而是逐边界的不确定选择，必须用全局 oracle（gzip footer 的 CRC32/ISIZE，或 base64→bz2 成功）来定分支，局部\"可继续解压/全 base64\"判据在结构上无法定解。
+
+5) 附带线索（未验证假设，仅供下一环选择）：首次失败点是 output=1590 处引用 distance=1672（赤字 82），而 gzip FLG=0（无 FDICT）。\"解压刚开始就出现超出已输出距离的引用\"既符合\"流中缺/多字节造成整体错位\"，也符合\"压缩端使用过 preset dictionary/上一段窗口作为字典\"的签名；若要排除后者，可先在本机复现 zlib.compressobj(wbits=31) 带 zdict 时的 gzip 头 FLG 值与该错误签名（gzip 通常写 FDICT=0x04，与观察到的 FLG=0 不符，故更可能是字节级错位）。
+
+可复用产物（cwd）：x_parse.py（plain.bin→x_recs.pkl，含 tcp/udp、seq、载荷）、x_recs.pkl、x_sweep_ol.py（(o,L) 族穷举）、x_full.py（全流跑指定 (o,L)）、x_succ.py（后继块/首部 shift 搜索）、x_bnd.py（多块边界组合枚举，直接产出\"等效组合\"证据）。
+
+### 19 [11:14:14]
+0e81 解压明文是严格 76 字符/行的 base64（可用作强 oracle）；该判据下"帧首丢 s=0..40 字节"族在边界 1 全部不成立；题面"印度神秘密钥"对应 2026-10 eMudhra CA 小熵私钥事件
+本 Step 实测与检索增量（未获 flag，均为可复用判据 / 有界负向）：
+
+1) 新增强 oracle（实测确定）：52001 通道 728 块按 seq 排序、data=TCP 载荷[15:]，仅第 0 块用 zlib.decompressobj(31) 可解出 1581B，其内容为 base64 文本且行结构严格：76 字符/行、行分隔符只有 0x0a、共 21 行（前 20 行各 76 字符 + 末行 41 字符），字符集 = 标准 base64 表（含 + 与 /）+ \n 共 65 种。故对任意重组路径可做逐字符判定：输出偏移 p 满足 p%77==76 处必须是 '\n'，否则必须落在 base64 表内。该判据明显强于此前"输出全为 base64"（能杀死"可解压但错位"的分支）。
+
+2) 有界负向（本 Step 实测，勿重复）：实现状态复制式 DFS（cwd/z_dfs.py：每个帧边界尝试"丢弃该帧数据前 s 字节"，s=0..40，并用上述行结构 oracle 剪枝），在边界 1（第 2 块）即没有任何 s 能通过 oracle——最好输出长度停在 1581B（=第 0 块输出）。即"每个边界丢弃不定长前缀(≤40B)"这一族（含 fact_015 贪心得到的 s=1 / s=5 分支）在行结构判据下全部不成立。含义：0e81 的缺/多字节不在帧首字节级碎片上，或单次偏移 >40B，或需要更本质的模型（切分发生在压缩流生成之前、或压缩端使用了 pre-dictionary/更复杂封装）。该脚本可直接改 s 范围与判据，或把 oracle 换成"base64→bz2 可解码"的全局判定继续用。
+
+3) 题面线索落地（检索确认，非猜测）："还用来自印度神秘密钥同款方式加密了它"指向 2026-10 印度 CA 机构 eMudhra 中间证书私钥熵仅 3–8 bit、部分私钥就是小数（如 4）的真实事件；这与 fact_002 实测的外层 P-256 私钥=137（8-bit，key_epoch=legacy-8bit）完全对应，说明"印度同款"描述的是外层弱私钥，而不是内层资产 KDF 形式。故内层资产仍应按"81 组参数 + 常规 KDF"继续，但应转向此前未覆盖的族：高迭代 PBKDF2 / scrypt、SHA-384 / SHA-224、AES-128(16B key)、非 GCM 模式（CTR/CBC，用明文 crc32 作 oracle）。
+
+### 20 [11:18:49]
+复核 52001 gzip 通道：禁用窗口检查(提供 32768B 预设字典)可让第0/1帧交界"invalid distance too far back"消失并解出 3234B，但全流仍在后续报 invalid stored block lengths；raw_40001 整文件 crc32 恰为 0x00067890（强结构化异常）
+本 Step 从 shared/campB/plain.bin 独立重解析（x_recs.pkl）后的实测增量（未获 flag）：
+
+1) 外层/内层结构复核（与旧 fact 一致，作基准）：52001 通道 1456 帧 = 728 请求(.52:52001→.1:13400) + 728 响应(.1:13400→.52:52001)，两向去掉 UDS 头后数据逐字节相同；TCP 载荷 727×1213 + 1×778；伪 TCP 头 20B = cb213458 | seq(4) | ack(4) | 5018 2000 | cksum(2) | 0000，seq=1213k+1；DoIP 8B=02fd8001000004b5(len=1205)，UDS 7B=0e81001022<DID2>（响应为 00100e8162<DID2>），数据起点 = TCP 载荷偏移 15，长 1198（末帧 763）。DID 逐帧随机（f1b1,0dba,...），数据起始即 gzip 魔数 1f8b0800 5b85e16a 02ff。
+
+2) 新实测（gzip 断点机制）：对 chunk0[10:]（去掉 10B gzip 头）+ chunk1 做 raw-deflate（zlib.decompressobj(-15, zdict=...)）：
+   - 不给字典(或字典长 82/100/256/1024) → 输出 1585~1590B 后报 "invalid distance too far back"（=fact_015 的首错，distance≈1672 > 已输出 1590）；
+   - 给 32768 字节字典（任意内容，本测用 0x00）→ 不再报错，输出 3234B，eof=False。
+   即该断点本质是"回引距离超过已输出历史"，提供满 32KB 窗口后即消失（deflate 不校验字典内容，只影响被复制字节）。但这并非终解：把全部 728 块拼成 871709B 流后用同法 raw-inflate，仍会在其后报 "invalid stored block lengths" ⇒ 除窗口/字典因素外，流中后段确实还存在字节错位或缺失，"每帧统一裁剪 s 字节"族（旧 fact 已测）之外仍需新模型。
+
+3) 新实测（资产异常）：三个 SOME/IP 资产的整文件 crc32（非 manifest 登记的明文 crc）为 raw_40000=0xdea02dc5、raw_40001=0x00067890、raw_40002=0x7b1c93e7。其中 raw_40001 恰为 0x00067890（2.1MB 随机数据的 crc 落到这种结构化值概率 ~2^-32），是强异常，值得作线索（可能是作者特意构造/或提示）。各切片 crc32 仍均 ≠ manifest 的 39d7ed46/2a36dc64/0b733384（再次确认 manifest crc 描述明文）。
+
+4) 新实测（SOME/IP 帧精确字节）：每帧 UDP 载荷 1412B = 16B SOME/IP + 4B 大端偏移 + 1392B 数据；SOME/IP 头 = 1234 | method(0001/0002/0003，三资产分别) | len 057c | client 0e80 | 0002/0003/0004 | 0101a000。4B 偏移 1 基、step 1392（末帧更短），三流拼接长 983945/2116906/8423，减 28B 记录头后精确等于 manifest size。数据首 28B 记录头：raw_40000=0002 0000 0001 0000 0000 0000|9b6de929…；40001=0003…|bd4e95c0…；40002=0004…|a7e6b2d7…（前 12B 仅首 2B 为资产 id，其余恒为 00 00 00 01 00 00 00 00 00 00）。
+
+未完成（不计为排除）：gzip 全流正确重组仍未确定；资产仍未解出；本轮未尝试 CTR/CBC 等非 GCM 模式。
+
+### 21 [11:23:29]
+独立复核：0e83 通道=284B 说明+6×1198+1036=8224B（头 00112233×4 + AA×12）；blob 无 ≤2048 周期 XOR 结构；0e81 在 32KB zdict 下固定 (o,L) 切片仍无解（最优仅解到 ~27.8KB 即伪结尾/失步）
+本轮实测（未获 flag，均为可复现增量观察）：
+
+1) 0e83 通道精确重解析（自写 n1/recs.pkl，非引用旧产物）：TCP 52003 共 8 帧 = 1 条 299B 帧（TCP 载荷→DoIP 8B + UDS 7B + 284B UTF-8「备份说明」全文，末句确为「用对了才能看到库页头。」）+ 6×1213B + 1×1051B。数据均自 TCP 载荷偏移 15 起，长度 1198×6+1036 = 8224，与此前 blob_0e83.bin 一致。头 28B 实测 = 00112233 00112233 00112233 00112233 | AA×12，其后为高熵数据（已另存 me/0e83_blob.bin）。
+
+2) 独立复核 crc32（确认 fact_019 的异常）：raw_40000 整文件 0xdea02dc5 / crc28 0xfa127d14；raw_40001 整文件 0x00067890（确认为真实值，2.1MB 高熵数据命中该结构化值概率 ~2^-32）/ crc28 0x736dbeb7；raw_40002 整文件 0x7b1c93e7 / crc28 0xd65e26f9；0e83 blob 整文件 0xf16531db / crc28 0xd70e31d9。均 ≠ manifest 的 39d7ed46/2a36dc64/0b733384。
+
+3) 有界负向（新，扩展 fact_011 只测到周期 48）：对 raw_40000[28:][:200000]、raw_40002[28:]（8395B）、0e83[28:]（8196B）计算 lag p=1..2048 的「ct[i]^ct[i+p]==0」占比：最大值仅 0.0044 / 0.0068 / 0.0066（随机期望 1/256≈0.0039），无任何周期尖峰；三份 blob 字节直方图 256 个值全出现。⇒ 重复 XOR/PAD 类（任意周期 ≤2048）在资产与 0e83 上均不成立。
+
+4) 有界负向（补 fact_017/019）：对 52001 的 728 块按 seq 拼接，枚举 o∈{0,1,2,5,20} × L=1150..1198 的固定切片族，并在给出 32KB zdict（消除「distance too far back」假象）下用 512B 分批喂入：最优仅 o=0,L=1187 解出 27,794B 后报 invalid stored block lengths；o=0,L=1184 解出 27,792B 后报「incorrect data check」（伪 gzip 结尾，因输出远小于应有的 ~1.16M base64 字符）。⇒ 即使排除字典/窗口因素，任何固定 (o,L≤1198) 切片都不能走完全流；「逐块变长插入/缺失」模型仍未被任何固定参数族取代。
+
+5) 环境复核：外层链路可复现——HKDF-SHA256(ikm=x, salt=nonce, info="DGPT/1") = 959d9c3c…ee6c，AESGCM 解密 extract/stream.bin[12:] 精确得到 shared/campB/plain.bin（5,281,140B，逐字节相等）。
+
+### 22 [11:28:06]
+0e81(gzip) 串联流末尾 8 字节是真实 gzip footer（CRC32=0xd702f2d4，ISIZE=1,149,987）⇒ 总输入长度与 member 终点精确正确，缺陷只能在字节级插入/移位；zdict=32KB 的"修复"注入 34 个 0x00 并造成 28 处行结构违规，非真明文
+本 Step 从 x_recs.pkl（TCP 52001，728 帧，payload 已剥去伪 TCP 头，data=payload[15:]）实测的新增量（未获 flag）：
+
+1) 关键新证据（此前各轮均未注意）：把 728 块按 seq 拼接得 871,709B（727×1198 + 763，末帧 DoIP len=0x0302=770=7+763，其余 727 帧 len=0x04b5=1205），其**最后 8 字节 = d4 f2 02 d7 | 23 8c 11 00**，按 LE uint32 解为 CRC32=0xd702f2d4、ISIZE=1,149,987。
+   - ISIZE=1,149,987 与"解压出的 base64 文本总长约 1.15M"完全吻合（fact_015 的贪心修复只得 1,147,069B），随机 871KB 数据末尾恰好出现 ISIZE∈[1.1M,1.2M] 的概率约 2.3e-5。
+   - 结论：拼接口径（数据起点=payload 偏移 15、每帧 1198B、末帧 763B、seq 序）在**总长度与 member 终点上都是精确正确的**，因此流的错误只能是"流内字节级插入/删除（长度需自平衡）或位级移位"，而不是缺整帧、块乱序、帧长算错或尾部缺字节。
+   - 这同时给出强全局 oracle：任何候选重组必须得到**恰好 1,149,987 字节**且 **zlib.crc32(明文)=0xd702f2d4**（此 footer 判定强于行结构/可打印率判据，也强于 bz2 链，建议后续一律以此定分支）。
+
+2) 对 fact_019 的 zdict 修复做了判据级复核（本轮实测）：用 raw-deflate `zlib.decompressobj(-15, zdict=b'\x00'*32768)` 喂 c0[10:]+c1 确实不再报 invalid distance too far back，输出 3234B、eof=False；但这段输出在 1581B 之后出现 **34 个 0x00 字节**（如 "…Ru7lL7tkt536vE\x00\x00\x00\x00\x00\x00p5exvcN5jzvY093udv3t7R7"），且按 76 字符/行+\n 的严格行结构检查有 **28 处违规** ⇒ 这些字节是从假字典里"复制"出来的，该路径产出的不是真明文（与 fact_016 的 bz2 integrity error 一致）。zdict=1000 或 12 字节 gzip wrapper 下 zdict 均不生效仍报同错（说明只有满 32KB 窗口才能掩盖引用越界）。
+   即"流引用早于自身输出（赤字≈82B）"这一事实仍未解释：正确解应是"流内确实缺少/多出若干字节"，而不是"压缩端用了预设字典"。
+
+3) 有界负向（本轮实测）：在 871,709B 流中检索 Z_SYNC_FLUSH 空块标记 00 00 FF FF：**0 次命中** ⇒ 生成端不是"每帧 sync-flush 后再填充"的模型，故每帧尾部不存在可对齐的 flush 边界，padding（若存在）无法用 sync 标记定位。
+
+可复用：p17_stream.bin（cwd，871,709B 原始串联流）、x_recs.pkl（帧结构，data=payload[15:]）。下一步建议：用 Python 自写 inflate 在首错处做**位级重同步**搜索（目标：让全流跑到 eof 且 footer CRC32/ISIZE 匹配），或在每个帧边界枚举"丢弃 d_k∈{0..8} 字节"，以 (1,149,987, 0xd702f2d4) 作唯一终局判据（局部可解性/全 base64/行结构均不可作判据，fact_017/016 已证）。
+
+### 23 [11:32:43]
+zlib 无法生成\"gzip 封装+预设字典\"流（compressobj(wbits=31, zdict) 直接报 Invalid dictionary）⇒ 0e81 首错 deficit=82 不能是 zlib 生成的预设字典；且 32KB 假字典下流在 deflate 字节 ~5204 处出现真正的结构失步(bad btype)
+本 Step 独立复核 p17_stream.bin（52001 通道 728 帧数据按 seq 拼接，871,709B）得到的实测增量（未获 flag）：
+
+1) 复核 fact_021 的 footer：头 1f8b08005b85e16a02ff，尾 8B = d4f202d7 238c1100 ⇒ CRC32=0xd702f2d4 / ISIZE=1,149,987（LE uint32），确认为真实 gzip footer。
+
+2) 新（关键负向）：Python/zlib **不能**产生「gzip 封装 + 预设字典」的流。实测 `zlib.compressobj(9, zlib.DEFLATED, 31, 8, 0, b'hello world'*100)` 直接抛 `error: Invalid dictionary`（zlib 的 deflateSetDictionary 在 wrap==2 时返回 Z_STREAM_ERROR）。因此 fact_017/019 提出的「压缩端用了 preset dictionary、gzip 头不写 FDICT」这一解释在 zlib 实现上不成立；若真要用字典，只能手写 gzip 头 + raw deflate(zdict)，属人为构造。结合 fact_021 的 footer 精确性，最自洽的仍然是「流内字节级插入/移位」而非字典。
+
+3) 新（结构失步是真实的，不只是字典）：用 g11_inflate.py 按位解码（把 32768 字节 0x00 当作前置历史以消除"distance too far back"）时，输出 41,635B 后在 br.pos=41635 bit 处报 `bad btype`（保留值 3）⇒ 位流本身在 deflate 字节 ~5204 处结构崩坏；而裸解码（无字典）在 br.pos=9568 bit（=deflate 字节 1196，即 S 偏移 1206，等于第 1 帧数据第 8 字节）报 baddist(distance=1672, out=1590)。两个数字给出：①首错是"合法符号但距离越界"⇒ 首 1590B 的输出内容不受影响；②真正结构坏点在压缩流 0.6% 处。
+
+4) 复核 chunk0 明文结构与可用 oracle：S[:1198] 单独解出 1581B，非 base64 字符 0 个、行结构违规 0 个（20×76 字符行 + 41 字符残行，即 newline 当且仅当 p%77==76）。
+
+5) 新（负向，判据作废）：用「已知明文再压缩」比对定位压缩参数/失步点的办法不可用——把已知的 1581B 明文用 zlib level 1..9（memLevel 8/9）重压缩均得 1152B，与实际 deflate 字节的公共前缀长度 = 0（因为实际流首块是 dynamic Huffman 表按整份 1.15MB 文本优化的，与短前缀重压缩的首块选择天然不同）。
+
+6) 未完成（不计为排除）：已写好 bs1.py（对 deflate 字节 q∈[1150,1215] × 256 种替换，要求精确复现前 1581B 明文且续解输出继续满足 77 列行结构 oracle，按输出长度打分），被本轮时限中止，未得到任何候选。下一环可直接 `timeout 1800 python3 bs1.py` 续跑（单次 inflate 实测 1.28ms，10k 次约 15s 单核，成本极低），并可把 q 范围扩到 0..1196、加入单比特翻转与 1~3 字节插入/删除。工具：cwd/bs1.py、g11_inflate.py（返回 (out, event) 可按位报告错误位置）、p17_stream.bin。
+
+### 24 [11:38:02]
+0e81 流总长度精确等于 gzip 头(10)+deflate+尾(8)，无"插入垃圾"空间；单字节删除/帧内轮转两类新模型均被否定（仅 frame1 有唯一轮转 r=1196 可过 77 列判据但 frame2 无解）
+本轮实测（未获 flag；承接 fact_021/022，均为可复现观察）：
+
+1) 提取口径再验证（新）：对 52001 通道 728 帧分别用 payload[8:] / [13:] / [15:] / [17:] / [20:] 拼接后 gzip 解压，只有 [15:] 能通过 gzip 头校验（1f8b08005b85e16a02ff），其余均 "incorrect header check" ⇒ 数据起点 15、每帧 1198B（末帧 763B）、总长 871,709B 是唯一自洽切分。
+
+2) 关键算术结论（新）：871,709 = 10（gzip 头）+ 871,691（deflate）+ 8（footer d4f202d7 238c1100）。而 1,149,987 字节 base64 文本的 deflate 压缩率典型值≈0.758 ⇒ 0.758×1,149,987 ≈ 871,690，与实测 deflate 字节数几乎完全吻合。故「每帧尾部插入变长垃圾字节」模型（fact_015）在长度上不成立：若插入 K 字节则必有 K 字节真实流缺失（替换而非插入）；总长度的正确性说明错误只能是**流内字节替换/置换（长度自平衡）或位级错位**。
+
+3) 新有界负向 A（帧内删除单字节）：对 chunk1 逐位置 p=0..1197 删除 1 字节后接在 chunk0 后解码，仅 p∈{0,1,5} 不报错（均输出 3232B），p≥2 其余全部立即报 "invalid distance too far back"；且 p=0/1/5 三者的 3232B 输出有 49 处 77 列行结构违规 ⇒ 单字节删除族不可解，同时证实"行结构/全 base64"判据不足以定解（deflate copy token 会复制合法 base64 字符，violations 才是真信号）。
+
+4) 新有界负向 B（帧内轮转）：对 chunk1 的 1198 种轮转 c1[r:]+c1[:r] 全部试解，仅 r=1196（把末 2 字节移到帧首）在 frame1 通过 77 列 oracle（输出 1652B）；但继续对 chunk2 的 1198 种轮转搜索时 **0 个候选**可行 ⇒ "每帧整体轮转/循环移位"模型排除（且 r=1196 只多解 71 字节，属伪路径）。
+
+5) 小负向：0e83 通道 8224B blob 直接用其自身头做 key/iv（key=00112233×4 的 16/24/32B 变体，iv∈{st[16:28], st[0:12], 0^12}，ct=st[28:]）GCM 标签校验全部失败。
+
+未完成（不计为排除）：prng（random.Random(参数串).randbytes(32/16) 等）与"4 参数全排列×分隔符"族的批量扫描已写好脚本 mine/s1.py、mine/frames.py（对 raw_40002 用 5 种 framing 做 GCM 全量标签校验；单次校验实测 54µs，因 pycryptodome 对 8395B 全量解密），本轮被时限中止，未取得任何阳性/阴性结论。
+
+### 25 [11:43:04]
+52001 gzip 独立复核:首错=输出1590处 distance=1672(赤字82,不可能来自标准 deflate 从该起点压缩);"丢1字节"修复后输出变长但立即产生行结构违规;chunk1 前120字节全单字节替换无一可行
+本 Step 从 x_recs.pkl 独立重解析的实测增量（未获 flag，均为确定观察/有界负向）：
+
+1) 提取与信封复核：过滤 src=<target>:52001 得 728 帧；seq=1213k+1 连续；data=TCP payload[15:] 拼接 871,709B。头 1f8b08005b85e16a02ff，尾 d4f202d7 238c1100 ⇒ CRC32=0xd702f2d4 / ISIZE=1,149,987。
+   新算术：1,149,987 = 76×14934 + 69 + 14934 个换行，恰符合 base64.encodebytes 风格（76 字符/行 + 每行 \n）对约 851,290B 二进制的输出长度，与 gzip(base64(bz2)) 模型自洽（10 + 871,691 + 8 = 871,709）。
+
+2) 首错精确定位（自写 inflate 与 zlib 两路径一致）：chunk0[10:] 单独喂入输出 1581B、恰好消耗 9504 bit（=1188B，无剩余）；该 1581B 的 77 列行结构违规数=0（20×76 字符行 + 41 字符残行），开头 base64 解出 BZh9 ⇒ 明文起点正确。追加 chunk1 后输出 1590B，在 bit 9568（chunk1 第 8 字节）解出合法 distance 码但 d=1672 > 已输出 1590（赤字 82）。标准 deflate 的 distance 只能引用已输出历史，而起点经行结构证实正确 ⇒ 该 deflate 流不是"标准 deflate 从该明文起点压缩"的结果（只可能是压缩端用了预设字典或流内字节被改动），独立复核 fact_022。
+
+3) 有界负向（本轮实测）：
+   a. chunk0[10:]+chunk1[1:] 与 chunk0[10:-1]+chunk1 输出完全相同（3232B），但自 1581 之后有 49 处 77 列违规；再追加 chunk2 得 4887B、99 处违规 ⇒ "每帧丢 1 字节"类修复只是让 copy token 复制前面正确 base64 字符，内容从 1581 起即错，非真解。
+   b. 对 chunk1 前 120 个位置 p=0..119 枚举 256 种字节替换（30,600 候选，前缀 chunk0[10:]+c1′+chunk2[:64]），要求输出≥1581 且全输出 77 列违规=0：0 个通过（基线 c0+c1 为 0 违规/1590B）⇒ 首错不可能是 chunk1 前 120 字节的单字节损坏。
+   c. 871,709B 流中 00 00 FF FF 出现 0 次；1f8b 出现 16 次但位置均不按 1198 对齐（108108,203352,296594,…）⇒ 无逐帧 flush 边界，这些 1f8b 为随机巧合。
+
+未完成（不计为排除）：chunk1 第 120 字节之后 / chunk0 内多字节损坏、字典内容猜测、以 footer CRC32/ISIZE 为终局 oracle 的全局搜索均未做。
+
+### 26 [11:51:28]
+有界负向：83,754 个参数派生密钥（含 AES-128/192 长度与 SHA-384/224/blake2b 族）× 三资产 × CTR/CFB/OFB/CBC 已知明文块判定（9 种明文偏移、多 IV 安置）0 命中 —— 填补此前"非 GCM 模式与 AES-128"空白
+本 Step 实测（未获 flag；补 fact_012/018 明确列为"未跑"的两块：非 GCM 模式与 AES-128/192 密钥长度）。
+
+1) 方法（新工具 cwd/k/keys.py、cwd/k/sweep.py，8 进程）：取 1,782 个 4 参数格式串（81 组合 × 14 分隔符 + 标签式/JSON/中文式/换行/前缀式，且含 A12021W1B1、A1-2021-W1-B1 等），每串生成 47 个候选密钥：raw ljust/rjust（pad∈{0x00,0x20,'0'}）与循环重复到 16/24/32B、md5、md5²、sha1[:16]、sha1 重复[:32]、sha256/sha3_256/blake2s/blake2b 的 [:16]/[:24]/[:32]、sha512[:16]/[:32]、sha384[:32]、sha224[:16]、sha256²、hex 形式的 sha256/md5 → 共 83,754 个不同长度候选。
+
+2) 判定（每条都是强判据，不依赖可读率）：
+   - CTR/GCM 首块 keystream：KS = AES-ECB_K(iv12||00000001)，与 ct[o:o+8] XOR 后查 18 种文件魔数（PNG/SQLite/RIFF/7z/gzip/BZh/PDF/ELF/JPEG/GIF/ICO/RAR/ftyp/tar…）及 8 种 4 字节魔数；
+   - CFB/OFB 首块：KS = AES-ECB_K(iv16)；
+   - CBC 首块：P0 = D_K(ct[o:o+16]) XOR iv16 直接查魔数与 "SQLite format 3\0" 类前缀；
+   每资产取明文偏移 o∈{0,4,8,12,16,20,24,28,32}；iv12∈{st[0:12](12B 记录头), 0^12, 握手 nonce, st[16:28], st[12:24]}；iv16∈{st[12:28](16B 随机), st[0:16], 0^16, nonce||0^4}；三资产（raw_40000/40001/40002）全覆盖。
+
+3) 结果：0 命中（8 位/16 位强匹配均无，连 4 字节弱匹配也无）。含义：若资产采用 GCM/CTR/CFB/OFB/CBC 且 IV 取自记录头或 0/nonce，那么密钥不在"4 参数串 → 常规哈希/填充"这一族（且与密钥长度 16/24/32 无关）；同时 crc32 未参与判定，故此结论与 manifest crc 描述明文的既有判断不冲突。
+
+4) 未完成（不计为排除）：PBKDF2/scrypt 高迭代且 salt=记录头 16B 的族、以及"16B 随机尾部作 salt、12B 头作 GCM nonce"的组合，本轮未跑（脚本结构可直接复用 k/sweep.py 的 chk/POOL，把 AES 块判定换成 AESGCM 全量校验即可）。
+

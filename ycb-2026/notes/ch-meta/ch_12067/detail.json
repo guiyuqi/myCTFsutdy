@@ -1,0 +1,27 @@
+{
+  "id": 12067,
+  "ownerId": 142134,
+  "name": "Goodbye!shell",
+  "description": "进来道个别吧，只是这一次，shell 可能不会回应你了。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:37:16",
+  "score": "已答出289次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "b721ffd98d624d2a8c5dc4f5d55627d2",
+    "signature": "b750eab1cd689830b0785bf554760355",
+    "url": "https://pro-resource.dasctf.com/resource/oss/064414e7017cf54b009464569dc418a0.zip",
+    "name": "attachment.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/064414e7017cf54b009464569dc418a0.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825247316,
+  "isNeedCheck": false
+}

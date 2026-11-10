@@ -1,0 +1,27 @@
+{
+  "id": 12085,
+  "ownerId": 142134,
+  "name": "VVMM",
+  "description": "一层难后一重关，恢复VM找到藏在其中最美丽的姑娘",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:08:51",
+  "score": "已答出371次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "a62b095cf28846ce99b17802563fa1e0",
+    "signature": "61339a11157a0bd3e1e5dbc32beaac3e",
+    "url": "https://pro-resource.dasctf.com/resource/oss/c10577e0796b3d92741953cd472067a7.zip",
+    "name": "VVMM.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/c10577e0796b3d92741953cd472067a7.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825265093,
+  "isNeedCheck": false
+}

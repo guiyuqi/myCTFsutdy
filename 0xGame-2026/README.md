@@ -5,6 +5,12 @@
 > **题目**：共 44 题，解出 39 题（88.6%）
 > **flag 格式**：`0xGame{...}`
 
+> **仓库说明**：本目录是从个人归档里抽出的**脱敏发布版**。
+> 只发布 `README.md`、WP 正文、`notes/`、`scripts/`（部分赛事另有 `tooling/`、`retrospective/`）；
+> 归档里的 `attachments/`（题目附件）、`evidence/`（证据台账）、`deliverable/`（打包件/PDF）**不随仓库发布**，
+> 所以下面目录表里提到的这些子目录，在本仓库中可能不存在。
+> 真实靶机地址已替换为 `<target>`，个人主机路径已替换为 `~`，队名/姓名已替换为 `<team>` / `<name>`。
+
 ## 目录结构
 
 | 路径 | 内容 |
@@ -36,6 +42,8 @@
 ## 复现说明
 
 - 题目附件在 `attachments/<题号>_<题名>/` 下；`scripts/<题号>-solve.py` 与 Writeup §3 的题号一一对应。
+- **笔记里的 `firmware/` 就是归档里的 `attachments/`**：`notes/*.md` 保留的是比赛当时的原貌（当时工作区叫 `firmware/`），
+  归档时统一改名为 `attachments/`，读笔记时按此换算，笔记本身不改。
 - 交互题（Pwn / Crypto）的靶机赛后已回收，脚本里的地址需替换为自建环境。
 - `scripts/ctfplus.py` 是当时使用的平台交互工具，凭据从环境变量 `CTF_TOKEN` 或 `~/.token` 读取，**仓库内不含任何凭据**。
 - `attachments/12_天使大人/` 下是题目原始给的 SageMath 脚本（Sage 语法，非 Python），并非可独立运行的 `.py`。

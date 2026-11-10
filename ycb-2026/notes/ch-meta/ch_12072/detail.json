@@ -1,0 +1,27 @@
+{
+  "id": 12072,
+  "ownerId": 142134,
+  "name": "justledger",
+  "description": "账本服务中的多阶段内存破坏",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "01:08:25",
+  "score": "已答出232次，初始分值500.0，当前分值279.47，解出分值277.56",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "bfcdf18f8ee24dbfb4ecbc63f9216913",
+    "signature": "979841501eb7357fed6e4e6825c33352",
+    "url": "https://pro-resource.dasctf.com/resource/oss/3f98c0bad6092a4c9ab89f8a2b9b2a86.zip",
+    "name": "justledger的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/3f98c0bad6092a4c9ab89f8a2b9b2a86.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825251836,
+  "isNeedCheck": false
+}

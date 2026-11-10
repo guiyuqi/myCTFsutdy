@@ -1,0 +1,27 @@
+{
+  "id": 12063,
+  "ownerId": 142134,
+  "name": "GraphNexus",
+  "description": "某企业部署了一套知识图谱管理平台，用于组织和可视化内部技术知识体系。平台支持多人实时协作编辑，并提供了强大的图谱查询引擎。作为安全审计人员，请对该平台进行全面的安全评估，尝试获取系统中的敏感信息。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:44:51",
+  "score": "已答出436次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "5830e05ee9ba4e7fbb5ceccf34bd5860",
+    "signature": "5c84e6eca88e0795a4c2ad923d707065",
+    "url": "https://pro-resource.dasctf.com/resource/oss/d5cb5a800d8959b1c8d0748ee16f3c41.zip",
+    "name": "GraphNexus的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/d5cb5a800d8959b1c8d0748ee16f3c41.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825243146,
+  "isNeedCheck": false
+}

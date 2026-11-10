@@ -1,0 +1,27 @@
+{
+  "id": 12070,
+  "ownerId": 142134,
+  "name": "BabyMenu",
+  "description": "听说你是内核高手？（比赛结束前10分钟停止受理新的flag获取请求）",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出3次，初始分值500.0，当前分值499.98，解出分值499.96",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "58636818befd477189223adbd4717d96",
+    "signature": "ae81cd58625bc4b3e35938b48974e5e1",
+    "url": "https://pro-resource.dasctf.com/resource/oss/27ec3ae4c314b47fba61b37ea44ef6ae.zip",
+    "name": "BabyMenu.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/27ec3ae4c314b47fba61b37ea44ef6ae.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825250356,
+  "isNeedCheck": false
+}

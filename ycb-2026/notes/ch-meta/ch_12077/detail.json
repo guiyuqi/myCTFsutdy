@@ -1,0 +1,27 @@
+{
+  "id": 12077,
+  "ownerId": 142134,
+  "name": "mosaic",
+  "description": "PNG 工作器与六权限域利用链",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出21次，初始分值500.0，当前分值498.35，解出分值498.18",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "5b94d79a13134e15b792ec7564a01d48",
+    "signature": "866d9d25d148bfdd9b73d60967c6865a",
+    "url": "https://pro-resource.dasctf.com/resource/oss/1c51c3732275cd0f194f5ae1b9b01820.zip",
+    "name": "mosaic的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/1c51c3732275cd0f194f5ae1b9b01820.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825258420,
+  "isNeedCheck": false
+}

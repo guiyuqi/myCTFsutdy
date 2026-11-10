@@ -1,0 +1,15 @@
+{
+  "exerciseId": "1002",
+  "name": "BabyMenu",
+  "corpusClassify": "PWN",
+  "score": 500,
+  "solvedCount": 2,
+  "status": "OPEN",
+  "corpusDifficulty": "困难",
+  "description": "描述：BabyMenu",
+  "flagType": "CONSTANT",
+  "attachmentCode": "code-1002",
+  "relatedSceneVersion": [
+    "v1"
+  ]
+}

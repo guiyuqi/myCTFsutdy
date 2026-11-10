@@ -1,0 +1,27 @@
+{
+  "id": 12082,
+  "ownerId": 142134,
+  "name": "谁教坏了我的Agent",
+  "description": "【安全告警工单】2026-09-15 15:47:12\n告警编号：SOC-2026-0915-0117\n告警级别：High\n规则名称：DNS Tunneling（DNS 隧道行为检测）\n检测详情：过去 24 小时内，内网办公终端经企业 DNS 递归出口的外部域名解析请求中，\n检测到某终端的查询呈「同一外部域名后缀 + 子域标签随机化 + 周期性重复」模式，\n多次命中，疑似 DNS 隧道数据外带行为；相关请求发起自平台代码沙箱环境。\n关联情报：同一时段，公司代码托管平台（git.vixxmx.internal）审计发现某内部账号\n的个人访问令牌（PAT）被外部 IP 用于异常批量拉取多个私有仓库，时间与本告警吻合；\n初步研判，外带数据疑似分片后经多通道传输。请一并查明该令牌的泄漏途径。\n处置状态：待处置\n完整调查要求（需回答的问题、flag 格式与提示）见附件包内的 README.md，请按其指引提交调查结论。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:03:38",
+  "score": "已答出376次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "EASY",
+  "attachment": {
+    "key": "5c253b14b6a84911b0bb88cde0e06cfa",
+    "signature": "4dcfcd815651545f8dfa3e24fba9af21",
+    "url": "https://pro-resource.dasctf.com/resource/oss/6ac0ddce2c550eb74444ea970f2ebe17.zip",
+    "name": "谁教坏了我的Agent.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/6ac0ddce2c550eb74444ea970f2ebe17.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825262637,
+  "isNeedCheck": false
+}

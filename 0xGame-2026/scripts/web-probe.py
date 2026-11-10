@@ -10,7 +10,7 @@ web-probe.py —— 用真实浏览器侦察一个 web 靶机
     pwpython scripts/web-probe.py <url> [-o 输出目录] [--wait 毫秒] [--header K:V ...]
 
 例:
-    pwpython scripts/web-probe.py http://10.0.0.5:8080/
+    pwpython scripts/web-probe.py http://<target>:8080/
     pwpython scripts/web-probe.py http://target/ --wait 3000 -o evidence/host1
 """
 import argparse, json, os, sys, time

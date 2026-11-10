@@ -1,0 +1,20 @@
+{
+  "id": 12083,
+  "ownerId": 142134,
+  "name": "Lost_Memory",
+  "description": "三年前，研究员林晓的青梅竹马雅失踪。晓训练了 AI「AIYA」，对其倾注了他对雅的所有思念与爱，在这份浓烈的感情的趋势下，AIIYA每天扫描城市管网寻找她的踪迹。直到某天，AIYA 在地下废弃物回收站扫到一枚情绪标识为「雅」的废弃神经芯片，读取瞬间共情引擎过载崩溃。\n请从这台机器中找回 AIYA 被清空的五块记忆碎片，按编号首尾相接，再用同样的分隔符接上芯片的硬件编号，还原它最后的核心记忆，芯片外壳蚀刻的编号分段是为了读数方便，在固件里是连续编号。\n请从百度网盘下载题目附件：https://pan.baidu.com/s/1AcARbgNFM8Ab6O0vrJjvhQ?pwd=j58q 提取码: j58q \n解压密码：0QhPwlXHOFclWIwBW0JPQWM2mhpzysmU\n",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:29:50",
+  "score": "已答出213次，初始分值500.0，当前分值314.26，解出分值312.5",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": [],
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825263418,
+  "isNeedCheck": false
+}

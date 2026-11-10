@@ -1,0 +1,27 @@
+{
+  "id": 12068,
+  "ownerId": 142134,
+  "name": "LibraryManagementSystem",
+  "description": "一个部署在服务器的程序设计期末大作业，但似乎它的安全性有一些不足？（比赛结束前10分钟停止受理新的flag获取请求）",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出21次，初始分值500.0，当前分值498.35，解出分值498.18",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "98a47b89717b4c5a80135d0061bed00d",
+    "signature": "0c64400baec3c897d486fda2439ec4c4",
+    "url": "https://pro-resource.dasctf.com/resource/oss/c18c984f2b9a50cb424a76f9533603da.zip",
+    "name": "LibraryManagementSystem.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/c18c984f2b9a50cb424a76f9533603da.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825248124,
+  "isNeedCheck": false
+}

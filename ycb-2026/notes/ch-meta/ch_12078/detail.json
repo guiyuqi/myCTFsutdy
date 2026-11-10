@@ -1,0 +1,27 @@
+{
+  "id": 12078,
+  "ownerId": 142134,
+  "name": "cacheline",
+  "description": "缓存行中的跨对象生命周期利用",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "00:54:01",
+  "score": "已答出122次，初始分值500.0，当前分值439.49，解出分值438.49",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "3f9643ad42744c5abf236da64c0d5168",
+    "signature": "e5f0d7f73362168436f97a3dca27143a",
+    "url": "https://pro-resource.dasctf.com/resource/oss/f551898d60f6cb250e7991c7370275fd.zip",
+    "name": "cacheline的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/f551898d60f6cb250e7991c7370275fd.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825259122,
+  "isNeedCheck": false
+}

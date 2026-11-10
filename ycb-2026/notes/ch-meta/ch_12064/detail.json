@@ -1,0 +1,20 @@
+{
+  "id": 12064,
+  "ownerId": 142134,
+  "name": "DataPulse",
+  "description": "DataPulse 是一家数据分析公司的内部任务调度平台，员工可以提交数据处理任务并通过 Webhook 接收分析结果通知。作为安全审计团队成员，你受邀对平台进行安全评估，请找出隐藏的安全隐患。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "01:28:12",
+  "score": "已答出175次，初始分值500.0，当前分值374.88，解出分值373.43",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": [],
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825243869,
+  "isNeedCheck": false
+}

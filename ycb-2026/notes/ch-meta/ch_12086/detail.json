@@ -1,0 +1,27 @@
+{
+  "id": 12086,
+  "ownerId": 142134,
+  "name": "NeuralVault",
+  "description": "某联邦学习平台发现训练过程存在异常。作为安全审计员，你需要分析各参与方提交的梯度更新，定位异常参与方，还原攻击证据，并提交完整的审计报告以获取系统中隐藏的敏感信息。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "03:32:47",
+  "score": "已答出90次，初始分值500.0，当前分值467.26，解出分值466.52",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "d075d2dbb7f7401f8d83a780a0fb18ff",
+    "signature": "4923e082d1e09f38c7f702b9a631802d",
+    "url": "https://pro-resource.dasctf.com/resource/oss/42dcb84f95209728964c4695d530f73c.zip",
+    "name": "NeuralVault的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/42dcb84f95209728964c4695d530f73c.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825266879,
+  "isNeedCheck": false
+}

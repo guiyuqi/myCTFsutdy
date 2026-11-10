@@ -1,0 +1,20 @@
+{
+  "id": 12065,
+  "ownerId": 142134,
+  "name": "ApprovalFlow",
+  "description": "ApprovalFlow 是某集团内部的企业审批工作流平台：员工在此发起差旅报销、采购申请、合同用章与对外付款单据，平台按规则把单据流转到相应审批节点，并在状态变化时向外部系统推送结果通知。平台不提供站内人工审批入口，单据审批结果由外部审批系统按回调协议发起并回传。你作为外部安全评估人员，需要从公开入口出发，完整走通一次审批流转，取回被保护的目标数据。flag 以 DASCTF{...} 提交。",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出0次，初始分值500.0，当前分值500.0，解出分值500.0",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": [],
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825244655,
+  "isNeedCheck": false
+}

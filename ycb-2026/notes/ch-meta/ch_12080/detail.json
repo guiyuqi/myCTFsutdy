@@ -1,0 +1,27 @@
+{
+  "id": 12080,
+  "ownerId": 142134,
+  "name": "Jammed",
+  "description": "1984 年冬，一台 Correcting Selectric II 被送回国内检修。\n箱内留下两张记录，据说里面藏着宝藏的密码。\n\n原始条目格式为 `两位序号/五位流水码/两位片段`，序号从 01 至 24，其余字段只含小写字母和数字。\n按原始序号直接连接末尾片段即为压缩包密码，密码 SHA-256 见附件。",
+  "hasSolved": true,
+  "hasSubmit": null,
+  "costTime": "02:53:16",
+  "score": "已答出276次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "3ddd556baf0641daba82a13dd49bf6f4",
+    "signature": "fe3bee1016380e412681320a5858dbb3",
+    "url": "https://pro-resource.dasctf.com/resource/oss/57273be9deebb1126d7b670e1c67bc5a.zip",
+    "name": "Jammed.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/57273be9deebb1126d7b670e1c67bc5a.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825260684,
+  "isNeedCheck": false
+}

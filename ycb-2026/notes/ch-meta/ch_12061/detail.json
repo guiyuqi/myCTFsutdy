@@ -1,0 +1,45 @@
+{
+  "id": 12061,
+  "ownerId": 142134,
+  "name": "pdfchallenge",
+  "description": "简单的转换工具",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出41次，初始分值500.0，当前分值493.39，解出分值493.05",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": [],
+  "endpoints": [
+    {
+      "objectId": "endpoint_bc802b8473604e12afa042a9966eec4f",
+      "exposeIps": [
+        "<target>:22234"
+      ],
+      "serviceStatus": "UP",
+      "status": "running",
+      "ports": [
+        "http/3000"
+      ],
+      "users": [],
+      "portMappings": [
+        {
+          "type": "http",
+          "port": "3000",
+          "proxy": "22234"
+        }
+      ],
+      "proxyIps": [
+        "<target>"
+      ],
+      "isProxy": true,
+      "expireTime": 1792834200000
+    }
+  ],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825240682,
+  "isNeedCheck": false
+}

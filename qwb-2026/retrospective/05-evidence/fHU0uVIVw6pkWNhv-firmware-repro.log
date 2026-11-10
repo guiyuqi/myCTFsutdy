@@ -1,0 +1,8 @@
+[i] P            = a652156b27dddfa2dbc1ab597f2e970b
+[i] B            = 74150ea892fb5e9683815f03b5035db574b0da202a512254207698c79dec9415
+[i] 门2 校验      = cc6bc929b72471e6094c50776b65ff91 ✓
+[i] 密文偏移/长度 = 0x92 / 30 B
+[i] key=SM3(P)   = b5202c7d3801350533bacbe58a2be07c
+[i] iv =B[:16]   = 74150ea892fb5e9683815f03b5035db5
+[i] 实现         = cryptography
+[+] 明文          = flag{d230_5a75cf4_d8fb3e5_bae}

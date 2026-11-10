@@ -1,0 +1,27 @@
+{
+  "id": 12074,
+  "ownerId": 142134,
+  "name": "redisrelay",
+  "description": "Redis 模块到隔离路由服务的利用链",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出69次，初始分值500.0，当前分值480.89，解出分值480.32",
+  "checkScore": null,
+  "difficulty": "MEDIUM",
+  "attachment": {
+    "key": "3a443f71d5f749ad89953e30804cefec",
+    "signature": "40788fdf73a93ed5d438f49fdfd190fb",
+    "url": "https://pro-resource.dasctf.com/resource/oss/ffc390cf714048ae8c2a9850dedaba43.zip",
+    "name": "redisrelay的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/ffc390cf714048ae8c2a9850dedaba43.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825255009,
+  "isNeedCheck": false
+}

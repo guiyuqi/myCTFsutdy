@@ -1,0 +1,52 @@
+{
+  "id": 12066,
+  "ownerId": 142134,
+  "name": "ForgeProxy_1",
+  "description": "某工业园区部署了一套边缘计算网关管理平台，负责处理设备间的通信代理和流量调度。近期运维团队在日志中发现异常请求记录，怀疑系统存在安全隐患。作为安全审计人员，请对该平台进行全面的安全评估，尝试获取系统中的敏感信息。",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出0次，初始分值500.0，当前分值500.0，解出分值500.0",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "8b875c2a7497475cbf6798068ca0d756",
+    "signature": "72f750d7408cf7e6693f98bf70b5f046",
+    "url": "https://pro-resource.dasctf.com/resource/oss/4a2ea829d08e73cbb82bafb48199116d.zip",
+    "name": "ForgeProxy_1的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/4a2ea829d08e73cbb82bafb48199116d.zip",
+    "extension": "zip"
+  },
+  "endpoints": [
+    {
+      "objectId": "endpoint_5fe13dd4286049dca525d4c9951fb88a",
+      "exposeIps": [
+        "<target>:16104"
+      ],
+      "serviceStatus": "UP",
+      "status": "running",
+      "ports": [
+        "nc/8080"
+      ],
+      "users": [],
+      "portMappings": [
+        {
+          "type": "nc",
+          "port": "8080",
+          "proxy": "16104"
+        }
+      ],
+      "proxyIps": [
+        "<target>"
+      ],
+      "isProxy": true,
+      "expireTime": 1792834200000
+    }
+  ],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825246592,
+  "isNeedCheck": false
+}

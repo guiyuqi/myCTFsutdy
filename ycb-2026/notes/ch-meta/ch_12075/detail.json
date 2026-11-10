@@ -1,0 +1,27 @@
+{
+  "id": 12075,
+  "ownerId": 142134,
+  "name": "notebook",
+  "description": "笔记服务中的编织对象利用链",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出37次，初始分值500.0，当前分值494.64，解出分值494.34",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "86c9129a20b04f9e917cf476e4054173",
+    "signature": "22c6c3179f1eec830f201a89695f8b9d",
+    "url": "https://pro-resource.dasctf.com/resource/oss/ba1fbe3bde258d0ced2845f768ca034e.zip",
+    "name": "notebook的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/ba1fbe3bde258d0ced2845f768ca034e.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825256432,
+  "isNeedCheck": false
+}

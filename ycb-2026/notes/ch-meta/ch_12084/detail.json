@@ -1,0 +1,27 @@
+{
+  "id": 12084,
+  "ownerId": 142134,
+  "name": "千千的咲",
+  "description": "可爱的千咲多摸摸他就可以拿到flag了。（真机与模拟器均测试通过）",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出120次，初始分值500.0，当前分值441.48，解出分值440.49",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "465a704f56a54e03b07ed70f4c7caa1e",
+    "signature": "4ec86acd48e7149c501ad8f88f0a3235",
+    "url": "https://pro-resource.dasctf.com/resource/oss/5480c1a54f89fc08a90ed54df8352d09.zip",
+    "name": "千千的咲.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/5480c1a54f89fc08a90ed54df8352d09.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825264310,
+  "isNeedCheck": false
+}

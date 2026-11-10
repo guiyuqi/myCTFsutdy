@@ -1,0 +1,27 @@
+{
+  "id": 12062,
+  "ownerId": 142134,
+  "name": "FluxPipe",
+  "description": "某企业内部部署了一套实时数据流处理管道配置平台，用于管理数据流管道和监控指标。近期安全团队收到告警提示平台可能存在未授权访问风险。作为安全审计人员，请对该平台进行全面的安全评估，尝试获取系统中的敏感信息。",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出326次，初始分值500.0，当前分值200.0，解出分值200.0",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "b894a72c9e804091bf34335a76b57363",
+    "signature": "2ea207205a80f786c41e590cedc75683",
+    "url": "https://pro-resource.dasctf.com/resource/oss/cd9f42d7252de3dc58b1313b2425bab3.zip",
+    "name": "FluxPipe的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/cd9f42d7252de3dc58b1313b2425bab3.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825242229,
+  "isNeedCheck": false
+}

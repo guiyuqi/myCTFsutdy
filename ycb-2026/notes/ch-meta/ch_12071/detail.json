@@ -1,0 +1,27 @@
+{
+  "id": 12071,
+  "ownerId": 142134,
+  "name": "EdgeCore",
+  "description": "A management console exposed on the server. Everything looks normal at first glance—until you take a closer look.",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出0次，初始分值500.0，当前分值500.0，解出分值500.0",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "dd9acbf95a054c90a3fae49599ba66a8",
+    "signature": "a55e5e1932be30624cc84ec70045dcf5",
+    "url": "https://pro-resource.dasctf.com/resource/oss/f280fd596caf0a1b104e54c1219e9731.zip",
+    "name": "attachment.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/f280fd596caf0a1b104e54c1219e9731.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792809285680,
+  "isNeedCheck": false
+}

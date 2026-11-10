@@ -1,0 +1,27 @@
+{
+  "id": 12073,
+  "ownerId": 142134,
+  "name": "xmlbridge",
+  "description": "XML 桥接与清单保险库利用",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出104次，初始分值500.0，当前分值456.16，解出分值455.3",
+  "checkScore": null,
+  "difficulty": "EASY",
+  "attachment": {
+    "key": "1e48d5dbce9d4061beadaf7c42b8b745",
+    "signature": "5f668b39e5a3573dc938a4a9ce921679",
+    "url": "https://pro-resource.dasctf.com/resource/oss/450c89db9142d5f4761522b2c0cabe0c.zip",
+    "name": "xmlbridge的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/450c89db9142d5f4761522b2c0cabe0c.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825253367,
+  "isNeedCheck": false
+}

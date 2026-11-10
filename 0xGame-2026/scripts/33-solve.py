@@ -12,7 +12,7 @@
   2. 枚举全部 HTTP 请求。绝大多数是 decoy（health.txt / site.css / readme.txt ...）。
   3. 真正的载荷: GET /download/secret.zip  ->  PK zip，单条目 secret.txt，deflate(无加密)。
   4. 解出 secret.txt = base64 字符串 -> base64 decode -> flag。
-  5. 干扰流: 10.10.10.80:9001 自定义 "TELEMETRY/1.0" 协议，正文写着
+  5. 干扰流: <target>:9001 自定义 "TELEMETRY/1.0" 协议，正文写着
      `note=payload-is-not-http`，把人往"非 HTTP 载荷"方向带（诱饵）。
 
 用法:

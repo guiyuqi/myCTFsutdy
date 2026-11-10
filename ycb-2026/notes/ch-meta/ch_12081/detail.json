@@ -1,0 +1,27 @@
+{
+  "id": 12081,
+  "ownerId": 142134,
+  "name": "skin secret",
+  "description": "你喜欢cs吗",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出145次，初始分值500.0，当前分值414.3，解出分值413.11",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "2f474e0854eb4a5bb21cacfd9b32d136",
+    "signature": "1c490cc0c679c47e7f9227a6cff431d0",
+    "url": "https://pro-resource.dasctf.com/resource/oss/f7b475a77862b3725d6fce7fbd2ef52e.zip",
+    "name": "CS.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/f7b475a77862b3725d6fce7fbd2ef52e.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": false,
+  "relationType": "none",
+  "endpointType": "none",
+  "currentTime": 1792825261887,
+  "isNeedCheck": false
+}

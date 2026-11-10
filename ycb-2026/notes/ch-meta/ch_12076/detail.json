@@ -1,0 +1,27 @@
+{
+  "id": 12076,
+  "ownerId": 142134,
+  "name": "vaultcache",
+  "description": "保险库缓存与代理利用",
+  "hasSolved": false,
+  "hasSubmit": null,
+  "costTime": null,
+  "score": "已答出35次，初始分值500.0，当前分值495.22，解出分值494.94",
+  "checkScore": null,
+  "difficulty": "HARD",
+  "attachment": {
+    "key": "c75e86035f6c4bd39a2a070c28359af1",
+    "signature": "af5085c046da35378eb438cadb65003f",
+    "url": "https://pro-resource.dasctf.com/resource/oss/7f01994551fe6140b795b890df520881.zip",
+    "name": "vaultcache的附件.zip",
+    "previewUrl": "https://pro-resource.dasctf.com/resource/oss/7f01994551fe6140b795b890df520881.zip",
+    "extension": "zip"
+  },
+  "endpoints": [],
+  "canRefreshEndpoint": false,
+  "isNeedInit": true,
+  "relationType": "resource",
+  "endpointType": "monopoly",
+  "currentTime": 1792825257293,
+  "isNeedCheck": false
+}
