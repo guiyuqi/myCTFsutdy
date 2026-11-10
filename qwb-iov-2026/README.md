@@ -1,15 +1,15 @@
 # 强网杯 2026 · 车联网安全专项赛（CTF 遴选赛）· 归档
 
-> 队伍 **<team>**｜赛程 **2026-11-08 09:00–12:00 CST**（3 h）
-> 终盘 **630 PT / 解出 3 题 / 第 48 名 / 一血 1 个**
-> 架构 **ctfagent + muteki + pi worker**（模型 deepseek-flash，即 DeepSeek-V4.1-Flash）
-> 归档于 **2026-11-08 晚**｜本 README 是入口，细节按下面的表跳。
-
 > **仓库说明**：本目录是从个人归档里抽出的**脱敏发布版**。
 > 只发布 `README.md`、WP 正文、`notes/`、`scripts/`（部分赛事另有 `tooling/`、`retrospective/`）；
 > 归档里的 `attachments/`（题目附件）、`evidence/`（证据台账）、`deliverable/`（打包件/PDF）**不随仓库发布**，
 > 所以下面目录表里提到的这些子目录，在本仓库中可能不存在。
 > 真实靶机地址已替换为 `<target>`，个人主机路径已替换为 `~`，队名/姓名已替换为 `<team>` / `<name>`。
+
+> 队伍 **<team>**｜赛程 **2026-11-08 09:00–12:00 CST**（3 h）
+> 终盘 **630 PT / 解出 3 题 / 第 48 名 / 一血 1 个**
+> 架构 **ctfagent + muteki + pi worker**（模型 deepseek-flash，即 DeepSeek-V4.1-Flash）
+> 归档于 **2026-11-08 晚**｜本 README 是入口，细节按下面的表跳。
 
 ---
 
